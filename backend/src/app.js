@@ -59,3 +59,18 @@ process.on("SIGINT", async () => {
   await mongoose.connection.close();
   process.exit(0);
 });
+
+
+
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++
+import ngoRoutes from "./routes/ngo.routes.js";
+
+app.use("/ngo", ngoRoutes);
+
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++
+import doctorRoutes from "./routes/doctor.routes.js";
+
+app.use("/doctor", doctorRoutes); // /doctor/profile
+// public routes already mounted as app.use("/", publicRoutes)
