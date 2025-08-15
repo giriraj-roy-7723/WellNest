@@ -1,93 +1,177 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
-import { getToken, removeToken } from "../utils/auth";
 import Navbar from "../components/Navbar";
-import WellnestSection from "../components/dashboard/WellnestSection";
-import DoctorsSection from "../components/dashboard/DoctorsSection";
-import NGOsSection from "../components/dashboard/NGOsSection";
-import HealthWorkersSection from "../components/dashboard/HealthWorkersSection";
-import ProfileSection from "../components/dashboard/ProfileSection";
-import "../styles/dashboard.css";
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState("wellnest");
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = getToken();
-        if (!token) {
-          navigate("/signin");
-          return;
-        }
-
-        const res = await api.get("/auth/me");
-        setUser(res.data.data.user);
-      } catch (error) {
-        console.error("Failed to fetch user:", error);
-        removeToken();
-        navigate("/signin");
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    // Check if user is authenticated
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/signin");
+      return;
+    }
     fetchUser();
   }, [navigate]);
 
-  const handleLogout = () => {
-    removeToken();
-    navigate("/");
+  const fetchUser = async () => {
+    try {
+      const response = await api.get("/auth/me");
+      setUser(response.data.data.user);
+    } catch (err) {
+      console.error("Error fetching user:", err);
+      navigate("/signin");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const renderSection = () => {
-    switch (activeSection) {
-      case "wellnest":
-        return <WellnestSection user={user} />;
-      case "doctors":
-        return <DoctorsSection />;
-      case "ngos":
-        return <NGOsSection />;
-      case "healthworkers":
-        return <HealthWorkersSection />;
-      case "profile":
-        return <ProfileSection user={user} />;
-      default:
-        return <WellnestSection user={user} />;
-    }
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/signin");
   };
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading your dashboard...</p>
+      <div className="page">
+        <Navbar onLogout={handleLogout} />
+        <div className="page-content">
+          <div className="loading-spinner"></div>
+          <p>Loading...</p>
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
-    <div className="dashboard-container">
-      <Navbar 
-        user={user} 
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-        onLogout={handleLogout}
-      />
-      
-      <main className="dashboard-main">
-        <div className="dashboard-content">
-          {renderSection()}
+    <div className="page">
+      <Navbar onLogout={handleLogout} />
+      <div className="page-content">
+        <div className="section-header">
+          <h1 className="section-title">Dashboard</h1>
+          <p className="section-subtitle">Welcome back, {user?.firstName}. Here's your healthcare overview.</p>
         </div>
-      </main>
+
+        <div className="section-content">
+          <div className="welcome-section">
+            <div className="welcome-card">
+              <div className="welcome-icon">👋</div>
+              <h2>Hello, {user?.firstName}!</h2>
+              <p>Welcome to your WellNest dashboard. Access healthcare services and manage your profile.</p>
+              <div className="user-role">
+                <span className="badge badge-primary">{user?.role}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div className="card">
+              <div className="card-header">
+                <div className="card-icon">👨‍⚕️</div>
+                <h3 className="card-title">Find Doctors</h3>
+              </div>
+              <div className="card-content">
+                <p>Connect with qualified healthcare professionals in your area.</p>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => navigate("/doctors")}
+                >
+                  Browse Doctors
+                </button>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-header">
+                <div className="card-icon">🏛️</div>
+                <h3 className="card-title">Connect with NGOs</h3>
+              </div>
+              <div className="card-content">
+                <p>Discover non-governmental organizations working for community health.</p>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => navigate("/ngos")}
+                >
+                  View NGOs
+                </button>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-header">
+                <div className="card-icon">🏥</div>
+                <h3 className="card-title">Health Workers</h3>
+              </div>
+              <div className="card-content">
+                <p>Access community health workers for local healthcare support.</p>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => navigate("/healthworkers")}
+                >
+                  Find Health Workers
+                </button>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-header">
+                <div className="card-icon">📰</div>
+                <h3 className="card-title">Health Blogs</h3>
+              </div>
+              <div className="card-content">
+                <p>Stay informed with healthcare insights and updates from experts.</p>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => navigate("/blogs")}
+                >
+                  Read Blogs
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="quick-actions">
+            <div className="card">
+              <div className="card-header">
+                <div className="card-icon">⚡</div>
+                <h3 className="card-title">Quick Actions</h3>
+              </div>
+              <div className="card-content">
+                <div className="quick-actions-grid">
+                  <button 
+                    className="btn btn-outline"
+                    onClick={() => navigate("/profile")}
+                  >
+                    Edit Profile
+                  </button>
+                  <button 
+                    className="btn btn-outline"
+                    onClick={() => navigate("/blogs")}
+                  >
+                    View All Blogs
+                  </button>
+                  <button 
+                    className="btn btn-outline"
+                    onClick={() => navigate("/doctors")}
+                  >
+                    Find Doctor
+                  </button>
+                  <button 
+                    className="btn btn-outline"
+                    onClick={() => navigate("/ngos")}
+                  >
+                    Browse NGOs
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
