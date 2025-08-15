@@ -70,16 +70,6 @@ contract WellNestToken is ERC20Capped, ERC20Burnable {
         emit TokensSpent(msg.sender, amount);
     }
 
-    // Alternative: spend all available tokens
-    function spendAll() external {
-        uint256 userBalance = balanceOf(msg.sender);
-        require(userBalance > 0, "No tokens to spend");
-
-        _transfer(msg.sender, s_owner, userBalance);
-
-        emit TokensSpent(msg.sender, userBalance);
-    }
-
     function _mintMinerReward() internal {
         _mint(block.coinbase, blockReward); //block.coinbase == who mined the block
     }

@@ -2,7 +2,12 @@ import mongoose from "mongoose";
 
 const NGOProfileSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", unique: true, required: true },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      unique: true,
+      required: true,
+    },
     orgName: { type: String, default: null },
     registrationNumber: { type: String, default: null },
     mission: { type: String, default: null },
@@ -14,12 +19,12 @@ const NGOProfileSchema = new mongoose.Schema(
         {
           title: String,
           body: String,
-          createdAt: { type: Date, default: Date.now }
-        }
+          createdAt: { type: Date, default: Date.now },
+        },
       ],
-      default: []
+      default: [],
     },
-    isProfileComplete: { type: Boolean, default: false }
+    isProfileComplete: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

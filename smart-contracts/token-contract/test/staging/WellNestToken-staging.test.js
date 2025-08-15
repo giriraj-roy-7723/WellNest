@@ -268,52 +268,6 @@ developmentChains.includes(network.name)
           );
         });
 
-        it("allows user to spend all tokens on testnet", async function () {
-          this.timeout(300000); // 5 minutes timeout
-
-          if (!testUserContract) {
-            console.log("Skipping spendAll test due to wallet funding issue");
-            return;
-          }
-
-          const tokensToGive = ethers.parseEther("10");
-
-          console.log(`Giving user ${ethers.formatEther(tokensToGive)} tokens`);
-
-          // Give user some tokens
-          const transferTx = await wellnestToken.transfer(
-            testUser,
-            tokensToGive
-          );
-          await transferTx.wait();
-
-          // Get initial deployer balance
-          const initialDeployerBalance =
-            await wellnestToken.balanceOf(deployer);
-
-          console.log("User spending all tokens");
-
-          // User spends all tokens
-          const spendAllTx = await testUserContract.spendAll();
-          await spendAllTx.wait();
-
-          // Check final balances
-          const finalUserBalance = await wellnestToken.balanceOf(testUser);
-          const finalDeployerBalance = await wellnestToken.balanceOf(deployer);
-
-          console.log(
-            `User final balance: ${ethers.formatEther(finalUserBalance)}`
-          );
-          console.log(
-            `Deployer final balance: ${ethers.formatEther(finalDeployerBalance)}`
-          );
-
-          expect(finalUserBalance).to.equal(0);
-          expect(finalDeployerBalance).to.equal(
-            initialDeployerBalance + tokensToGive
-          );
-        });
-
         it("correctly reports spendable balance on testnet", async function () {
           this.timeout(180000); // 3 minutes timeout
 

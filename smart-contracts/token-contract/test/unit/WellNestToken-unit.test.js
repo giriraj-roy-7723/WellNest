@@ -220,43 +220,6 @@ const {
           );
         });
 
-        it("should allow user to spend all tokens using spendAll function", async () => {
-          // Get initial balances
-          const initialUserBalance = await wellnestToken.balanceOf(user1);
-          const initialOwnerBalance = await wellnestToken.balanceOf(deployer);
-
-          // User spends all tokens
-          await user1Contract.spendAll();
-
-          // Check final balances
-          const finalUserBalance = await wellnestToken.balanceOf(user1);
-          const finalOwnerBalance = await wellnestToken.balanceOf(deployer);
-
-          assert.equal(finalUserBalance.toString(), "0");
-          assert.equal(
-            (initialOwnerBalance + initialUserBalance).toString(),
-            finalOwnerBalance.toString()
-          );
-        });
-
-        it("should emit TokensSpent event when user spends all tokens", async () => {
-          const userBalance = await wellnestToken.balanceOf(user1);
-
-          await expect(user1Contract.spendAll())
-            .to.emit(wellnestToken, "TokensSpent")
-            .withArgs(user1, userBalance);
-        });
-
-        it("should revert when user with 0 balance tries to spend all", async () => {
-          // First spend all tokens
-          await user1Contract.spendAll();
-
-          // Try to spend all again (should fail)
-          await expect(user1Contract.spendAll()).to.be.revertedWith(
-            "No tokens to spend"
-          );
-        });
-
         it("should return correct spendable balance", async () => {
           const userBalance = await wellnestToken.balanceOf(user1);
           const spendableBalance =
