@@ -67,3 +67,27 @@ export const getMyBlogs = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// Get all NGO blogs for public viewing
+export const getAllNGOBlogs = async (req, res) => {
+  try {
+    const ngos = await NGOProfile.find({}, { blogs: 1, user: 1, orgName: 1 })
+      .populate("user", "firstName lastName");
+    
+    const allBlogs = ngos
+      .filter(ngo => ngo.blogs && ngo.blogs.length > 0)
+      .map(ngo => ({
+        ngoId: ngo._id,
+        ngoName: ngo.user ? `${ngo.user.firstName} ${ngo.user.lastName}` : ngo.orgName || "NGO",
+        blogs: ngo.blogs.map(blog => ({
+          ...blog.toObject(),
+          ngoName: ngo.user ? `${ngo.user.firstName} ${ngo.user.lastName}` : ngo.orgName || "NGO"
+        }))
+      }))
+      .flatMap(ngo => ngo.blogs);
+    
+    res.json({ success: true, data: allBlogs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

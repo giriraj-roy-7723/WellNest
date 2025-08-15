@@ -74,3 +74,14 @@ import doctorRoutes from "./routes/doctor.routes.js";
 
 app.use("/doctor", doctorRoutes); // /doctor/profile
 // public routes already mounted as app.use("/", publicRoutes)
+
+
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++
+import healthworkerRoutes from "./routes/healthworker.routes.js";
+app.use("/healthworker", healthworkerRoutes);
+
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++
+import patientRoutes from "./routes/patient.routes.js";
+app.use("/patient", patientRoutes);
