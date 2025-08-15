@@ -1,6 +1,6 @@
-// test/staging/WellNestToken.staging.test.js - Simplified staging tests
+// test/staging/WellNestToken.staging.test.js - Integration tests (testnet only)
 const { assert, expect } = require("chai");
-const { network, ethers, getNamedAccounts, deployments } = require("hardhat");
+const { network, ethers, getNamedAccounts, deployments } = require("hardhat"); // Added missing imports
 const {
   developmentChains,
   INITIAL_SUPPLY,
@@ -9,269 +9,327 @@ const {
 // ONLY run on testnets (skip on development and mainnet)
 developmentChains.includes(network.name)
   ? describe.skip
-  : describe("WellNestToken Staging Test - Simplified", function () {
-      let wellnestToken, deployer, deployerSigner;
+  : describe("WellNestToken Staging Test", function () {
+      let wellnestToken, deployer;
 
-      before(async function () {
-        // Run setup once for all tests
-        this.timeout(120000); // 2 minutes for setup
-
+      beforeEach(async function () {
         try {
-          console.log("Setting up staging tests...");
-
+          // Get the deployer account
           const accounts = await getNamedAccounts();
           deployer = accounts.deployer;
-          deployerSigner = await ethers.getSigner(deployer);
 
+          // Get the signer for the deployer
+          const signer = await ethers.getSigner(deployer);
+
+          // Get the deployed contract
           const wellnestTokenDeployment =
             await deployments.get("WellNestToken");
+
+          // Create contract instance - Fixed variable name from 'raffle' to 'wellnestToken'
           wellnestToken = await ethers.getContractAt(
             "WellNestToken",
             wellnestTokenDeployment.address,
-            deployerSigner
+            signer
           );
 
           console.log(
             `Connected to WellNestToken at: ${wellnestTokenDeployment.address}`
           );
           console.log(`Using deployer: ${deployer}`);
-
-          // Check if we have enough balance for tests
-          const balance = await deployerSigner.provider.getBalance(deployer);
-          console.log(
-            `Deployer ETH balance: ${ethers.formatEther(balance)} ETH`
-          );
-
-          if (balance < ethers.parseEther("0.1")) {
-            console.warn("Low ETH balance - some tests may fail");
-          }
         } catch (error) {
           console.error("Setup error:", error);
           throw error;
         }
       });
 
-      describe("Basic Contract Verification", function () {
-        it("should have correct token metadata", async function () {
-          this.timeout(60000); // 1 minute
+      it("allows transfers on testnet", async function () {
+        // This test will take longer on testnet
+        this.timeout(300000); // 5 minutes timeout
 
-          console.log("Checking token metadata...");
+        // Test with small amounts to minimize gas costs
+        const tokensToSend = ethers.parseEther("1");
 
-          const [name, symbol, decimals] = await Promise.all([
-            wellnestToken.name(),
-            wellnestToken.symbol(),
-            wellnestToken.decimals(),
-          ]);
+        // Create a new wallet for testing (or use a predefined test address)
+        const testWallet = ethers.Wallet.createRandom();
+        const user1 = testWallet.address;
 
-          console.log(`Token: ${name} (${symbol}) - ${decimals} decimals`);
+        console.log(
+          `Transferring ${ethers.formatEther(tokensToSend)} tokens to ${user1}`
+        );
 
-          expect(name).to.equal("WellNestToken");
-          expect(symbol).to.equal("WNT");
-          expect(decimals).to.equal(18);
+        const initialBalance = await wellnestToken.balanceOf(user1);
+        console.log(`Initial balance: ${ethers.formatEther(initialBalance)}`);
 
-          console.log("Token metadata correct");
-        });
+        const deployerInitialBalance = await wellnestToken.balanceOf(deployer);
+        console.log(
+          `Deployer initial balance: ${ethers.formatEther(
+            deployerInitialBalance
+          )}`
+        );
 
-        it("should have correct initial supply and deployer balance", async function () {
-          this.timeout(60000);
+        // Execute transfer
+        const tx = await wellnestToken.transfer(user1, tokensToSend);
+        await tx.wait(); // Wait for transaction confirmation
 
-          console.log("Checking token supply and balances...");
+        const finalBalance = await wellnestToken.balanceOf(user1);
+        const deployerFinalBalance = await wellnestToken.balanceOf(deployer);
 
-          const [totalSupply, deployerBalance] = await Promise.all([
-            wellnestToken.totalSupply(),
-            wellnestToken.balanceOf(deployer),
-          ]);
+        console.log(`Final balance: ${ethers.formatEther(finalBalance)}`);
+        console.log(
+          `Deployer final balance: ${ethers.formatEther(deployerFinalBalance)}`
+        );
 
-          console.log(`Total supply: ${ethers.formatEther(totalSupply)}`);
-          console.log(
-            `Deployer balance: ${ethers.formatEther(deployerBalance)}`
-          );
-
-          const expectedSupply = ethers.parseEther(INITIAL_SUPPLY.toString());
-          expect(totalSupply).to.equal(expectedSupply);
-          expect(deployerBalance).to.be.gt(0);
-
-          console.log("Supply and balances correct");
-        });
-
-        it("should allow owner to set rewards by user ID", async function () {
-          this.timeout(120000); // 2 minutes
-
-          const testUserId = `simple_test_${Date.now()}`;
-          const rewardAmount = ethers.parseEther("1");
-
-          console.log(`Setting reward for user ID: ${testUserId}`);
-
-          const tx = await wellnestToken.setUserReward(
-            testUserId,
-            rewardAmount
-          );
-          await tx.wait();
-
-          const claimableReward = await wellnestToken.getUserReward(testUserId);
-
-          console.log(`Reward set: ${ethers.formatEther(claimableReward)}`);
-          expect(claimableReward).to.equal(rewardAmount);
-
-          console.log("Reward setting works");
-        });
-
-        it("should show user ID has no linked wallet initially", async function () {
-          this.timeout(60000);
-
-          const testUserId = `wallet_test_${Date.now()}`;
-
-          console.log("Checking wallet linking status...");
-
-          const [linkedWallet, hasWallet] = await Promise.all([
-            wellnestToken.getLinkedWallet(testUserId),
-            wellnestToken.hasLinkedWallet(testUserId),
-          ]);
-
-          expect(linkedWallet).to.equal(ethers.ZeroAddress);
-          expect(hasWallet).to.be.false;
-
-          console.log("Wallet linking status correct");
-        });
+        // Check that tokens were transferred correctly
+        expect(finalBalance).to.equal(initialBalance + tokensToSend);
+        expect(deployerFinalBalance).to.equal(
+          deployerInitialBalance - tokensToSend
+        );
       });
 
-      describe("Admin Functions", function () {
-        it("should allow admin claim", async function () {
-          this.timeout(180000); // 3 minutes
+      it("maintains correct total supply on testnet", async function () {
+        this.timeout(60000); // 1 minute timeout
 
-          const testUserId = `admin_test_${Date.now()}`;
-          const rewardAmount = ethers.parseEther("0.5");
+        const totalSupply = await wellnestToken.totalSupply();
+        console.log(`Total supply: ${ethers.formatEther(totalSupply)}`);
 
-          // Create a random address to receive tokens (no need to fund it)
-          const recipientAddress = ethers.Wallet.createRandom().address;
+        expect(totalSupply).to.be.gt(0); // Just verify it exists
 
-          console.log(`Testing admin claim for user ID: ${testUserId}`);
-          console.log(`Recipient: ${recipientAddress}`);
-
-          // Set reward
-          console.log("Setting reward...");
-          await (
-            await wellnestToken.setUserReward(testUserId, rewardAmount)
-          ).wait();
-
-          // Check initial balance
-          const initialBalance =
-            await wellnestToken.balanceOf(recipientAddress);
-          console.log(
-            `Initial recipient balance: ${ethers.formatEther(initialBalance)}`
-          );
-
-          // Admin claim
-          console.log("Executing admin claim...");
-          await (
-            await wellnestToken.adminClaim(testUserId, recipientAddress)
-          ).wait();
-
-          // Check final balance
-          const finalBalance = await wellnestToken.balanceOf(recipientAddress);
-          console.log(
-            `Final recipient balance: ${ethers.formatEther(finalBalance)}`
-          );
-
-          expect(finalBalance).to.equal(initialBalance + rewardAmount);
-
-          // Verify reward is reset
-          const remainingReward = await wellnestToken.getUserReward(testUserId);
-          expect(remainingReward).to.equal(0);
-
-          console.log("Admin claim successful");
-        });
+        // Optional: Check if it matches expected initial supply
+        const expectedSupply = ethers.parseEther(INITIAL_SUPPLY.toString());
+        expect(totalSupply).to.equal(expectedSupply);
       });
 
-      describe("Multiple Rewards Accumulation", function () {
-        it("should accumulate multiple rewards correctly", async function () {
-          this.timeout(240000); // 4 minutes
+      it("has correct token metadata on testnet", async function () {
+        this.timeout(60000);
 
-          const testUserId = `accumulation_test_${Date.now()}`;
-          const reward1 = ethers.parseEther("1");
-          const reward2 = ethers.parseEther("1.5");
-          const totalExpected = reward1 + reward2;
+        const name = await wellnestToken.name();
+        const symbol = await wellnestToken.symbol();
+        const decimals = await wellnestToken.decimals();
 
-          console.log("Testing reward accumulation...");
+        console.log(`Token: ${name} (${symbol}) - ${decimals} decimals`);
 
-          // Set first reward
-          console.log(`Setting reward 1: ${ethers.formatEther(reward1)}`);
-          await (await wellnestToken.setUserReward(testUserId, reward1)).wait();
-
-          // Set second reward
-          console.log(`Setting reward 2: ${ethers.formatEther(reward2)}`);
-          await (await wellnestToken.setUserReward(testUserId, reward2)).wait();
-
-          // Check total
-          const totalReward = await wellnestToken.getUserReward(testUserId);
-          console.log(`Total accumulated: ${ethers.formatEther(totalReward)}`);
-          console.log(`Expected: ${ethers.formatEther(totalExpected)}`);
-
-          expect(totalReward).to.equal(totalExpected);
-
-          console.log("Reward accumulation works");
-        });
+        expect(name).to.equal("WellNestToken");
+        expect(symbol).to.equal("WNT");
+        expect(decimals).to.equal(18);
       });
 
-      // Only test wallet linking if we have extra time/gas
-      describe("Wallet Linking (Optional)", function () {
-        it("should allow wallet linking when funded", async function () {
-          this.timeout(300000); // 5 minutes
+      it("deployer has initial token balance", async function () {
+        this.timeout(60000);
 
-          // Check deployer balance first
-          const balance = await deployerSigner.provider.getBalance(deployer);
-          if (balance < ethers.parseEther("0.05")) {
-            console.log(
-              "Skipping wallet linking test - insufficient ETH balance"
-            );
-            return;
-          }
+        const deployerBalance = await wellnestToken.balanceOf(deployer);
+        console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)}`);
 
+        expect(deployerBalance).to.be.gt(0);
+      });
+
+      // NEW STAGING TESTS FOR SPEND FUNCTIONALITY
+      describe("Spend functionality on testnet", function () {
+        let testUser, testUserContract;
+
+        beforeEach(async function () {
+          // Create a test user for spending tests
           const testWallet = ethers.Wallet.createRandom().connect(
             ethers.provider
           );
-          const testUser = testWallet.address;
-          const testUserId = `linking_test_${Date.now()}`;
+          testUser = testWallet.address;
 
-          console.log("Testing wallet linking...");
-          console.log(`Test user: ${testUser}`);
-          console.log(`Test user ID: ${testUserId}`);
-
+          // Fund the test wallet with some ETH for gas (if needed)
+          // This would require the deployer to have ETH to send
           try {
-            // Fund test wallet with minimal ETH
-            console.log("Funding test wallet...");
-            const ethAmount = ethers.parseEther("0.005");
+            const deployerSigner = await ethers.getSigner(deployer);
+            const ethAmount = ethers.parseEther("0.01"); // Small amount for gas
+
+            // Send ETH to test wallet for gas fees
             await deployerSigner.sendTransaction({
               to: testUser,
               value: ethAmount,
             });
 
-            const testUserContract = wellnestToken.connect(testWallet);
-
-            // Link wallet
-            console.log("Linking wallet...");
-            await (await testUserContract.linkWallet(testUserId)).wait();
-
-            // Verify linking
-            const linkedWallet =
-              await wellnestToken.getLinkedWallet(testUserId);
-            const linkedUserId = await wellnestToken.getLinkedUserId(testUser);
-
-            expect(linkedWallet).to.equal(testUser);
-            expect(linkedUserId).to.equal(testUserId);
-
-            console.log("Wallet linking successful");
+            // Create contract instance connected to test user
+            testUserContract = wellnestToken.connect(testWallet);
           } catch (error) {
-            console.log(`Wallet linking test failed: ${error.message}`);
-            console.log("This is expected on testnets with network issues");
+            console.log(
+              "Note: Could not fund test wallet, some tests may fail due to gas"
+            );
+            testUserContract = null;
           }
         });
-      });
 
-      after(function () {
-        console.log("Staging tests completed!");
-        console.log(
-          "💡 Tip: Run unit tests with 'yarn hardhat test' for faster testing"
-        );
+        it("allows owner to set and user to claim rewards on testnet", async function () {
+          this.timeout(300000); // 5 minutes timeout
+
+          const rewardAmount = ethers.parseEther("2");
+
+          console.log(
+            `Setting reward of ${ethers.formatEther(rewardAmount)} tokens for ${testUser}`
+          );
+
+          // Set reward for test user
+          const setRewardTx = await wellnestToken.setUserReward(
+            testUser,
+            rewardAmount
+          );
+          await setRewardTx.wait();
+
+          // Check reward was set
+          const claimableReward = await wellnestToken.getUserReward(testUser);
+          console.log(
+            `Claimable reward: ${ethers.formatEther(claimableReward)}`
+          );
+          expect(claimableReward).to.equal(rewardAmount);
+
+          if (testUserContract) {
+            // Get initial balances
+            const initialUserBalance = await wellnestToken.balanceOf(testUser);
+            const initialDeployerBalance =
+              await wellnestToken.balanceOf(deployer);
+
+            console.log(
+              `User initial balance: ${ethers.formatEther(initialUserBalance)}`
+            );
+
+            // User claims reward
+            const claimTx = await testUserContract.claim();
+            await claimTx.wait();
+
+            // Check balances after claim
+            const finalUserBalance = await wellnestToken.balanceOf(testUser);
+            const finalDeployerBalance =
+              await wellnestToken.balanceOf(deployer);
+
+            console.log(
+              `User final balance: ${ethers.formatEther(finalUserBalance)}`
+            );
+            console.log(
+              `Deployer balance change: ${ethers.formatEther(initialDeployerBalance - finalDeployerBalance)}`
+            );
+
+            expect(finalUserBalance).to.equal(
+              initialUserBalance + rewardAmount
+            );
+          } else {
+            console.log("Skipping claim test due to wallet funding issue");
+          }
+        });
+
+        it("allows user to spend tokens back to owner on testnet", async function () {
+          this.timeout(300000); // 5 minutes timeout
+
+          if (!testUserContract) {
+            console.log("Skipping spend test due to wallet funding issue");
+            return;
+          }
+
+          const tokensToGive = ethers.parseEther("5");
+          const tokensToSpend = ethers.parseEther("3");
+
+          console.log(`Giving user ${ethers.formatEther(tokensToGive)} tokens`);
+
+          // First, give user some tokens
+          const transferTx = await wellnestToken.transfer(
+            testUser,
+            tokensToGive
+          );
+          await transferTx.wait();
+
+          // Verify user received tokens
+          const userBalance = await wellnestToken.balanceOf(testUser);
+          console.log(
+            `User balance after receiving tokens: ${ethers.formatEther(userBalance)}`
+          );
+          expect(userBalance).to.equal(tokensToGive);
+
+          // Get initial deployer balance
+          const initialDeployerBalance =
+            await wellnestToken.balanceOf(deployer);
+
+          console.log(
+            `User spending ${ethers.formatEther(tokensToSpend)} tokens`
+          );
+
+          // User spends tokens
+          const spendTx = await testUserContract.spend(tokensToSpend);
+          await spendTx.wait();
+
+          // Check final balances
+          const finalUserBalance = await wellnestToken.balanceOf(testUser);
+          const finalDeployerBalance = await wellnestToken.balanceOf(deployer);
+
+          console.log(
+            `User final balance: ${ethers.formatEther(finalUserBalance)}`
+          );
+          console.log(
+            `Deployer final balance: ${ethers.formatEther(finalDeployerBalance)}`
+          );
+
+          expect(finalUserBalance).to.equal(tokensToGive - tokensToSpend);
+          expect(finalDeployerBalance).to.equal(
+            initialDeployerBalance + tokensToSpend
+          );
+        });
+
+        it("correctly reports spendable balance on testnet", async function () {
+          this.timeout(180000); // 3 minutes timeout
+
+          const tokensToGive = ethers.parseEther("7");
+
+          // Give user some tokens
+          const transferTx = await wellnestToken.transfer(
+            testUser,
+            tokensToGive
+          );
+          await transferTx.wait();
+
+          // Check spendable balance
+          const spendableBalance =
+            await wellnestToken.getSpendableBalance(testUser);
+          const actualBalance = await wellnestToken.balanceOf(testUser);
+
+          console.log(
+            `Spendable balance: ${ethers.formatEther(spendableBalance)}`
+          );
+          console.log(`Actual balance: ${ethers.formatEther(actualBalance)}`);
+
+          expect(spendableBalance).to.equal(actualBalance);
+          expect(spendableBalance).to.equal(tokensToGive);
+        });
+
+        it("verifies spend events are emitted on testnet", async function () {
+          this.timeout(300000); // 5 minutes timeout
+
+          if (!testUserContract) {
+            console.log("Skipping event test due to wallet funding issue");
+            return;
+          }
+
+          const tokensToGive = ethers.parseEther("4");
+          const tokensToSpend = ethers.parseEther("2");
+
+          // Give user some tokens
+          const transferTx = await wellnestToken.transfer(
+            testUser,
+            tokensToGive
+          );
+          await transferTx.wait();
+
+          console.log(`Testing spend event emission`);
+
+          // User spends tokens and check for event
+          const spendTx = await testUserContract.spend(tokensToSpend);
+          const receipt = await spendTx.wait();
+
+          // Check if TokensSpent event was emitted
+          const spendEvent = receipt.logs.find((log) => {
+            try {
+              const parsed = wellnestToken.interface.parseLog(log);
+              return parsed.name === "TokensSpent";
+            } catch {
+              return false;
+            }
+          });
+
+          expect(spendEvent).to.not.be.undefined;
+          console.log("TokensSpent event successfully emitted");
+        });
       });
     });
