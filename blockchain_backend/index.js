@@ -1,7 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
-const cookieParser = require("cookie-parser");
 
 const { connect } = require("./connect");
 const { authMiddleware } = require("./middlewares/auth.js");
@@ -14,13 +12,12 @@ const PORT = 8000;
 
 app.use(cors());
 
-connect("mongodb://localhost:27017/donation")
+connect("mongodb://localhost:27017/wellnest")
   .then(() => console.log("mongo started"))
   .catch((err) => console.log(err));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
 app.use(authMiddleware);
 
 app.use("/pay", staticRoute);

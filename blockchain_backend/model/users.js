@@ -16,11 +16,6 @@ const urlSchema = new mongoose.Schema(
       type: String,
       default: "0x",
     },
-    visitHistory: [
-      {
-        timestamp: { type: Number },
-      },
-    ],
   },
   {
     timestamps: true,
