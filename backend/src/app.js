@@ -9,16 +9,15 @@ import publicRoutes from "./routes/public.routes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import mongoose from "mongoose";
 import { validationResult } from "express-validator";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
 
-
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:3000",
-    credentials: false
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    credentials: false,
   })
 );
 
@@ -29,7 +28,13 @@ app.use(morgan("dev"));
 app.use((req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, message: "Validation error", errors: errors.array() });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Validation error",
+        errors: errors.array(),
+      });
   }
   next();
 });
@@ -48,7 +53,11 @@ app.use(errorHandler);
 // Start
 const PORT = process.env.PORT || 5000;
 connectDB(process.env.MONGODB_URI)
-  .then(() => app.listen(PORT, () => console.log(` API running on http://localhost:${PORT}`)))
+  .then(() =>
+    app.listen(PORT, () =>
+      console.log(` API running on http://localhost:${PORT}`)
+    )
+  )
   .catch((e) => {
     console.error("Mongo connect failed", e);
     process.exit(1);
@@ -60,14 +69,10 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-
-
-
 //+++++++++++++++++++++++++++++++++++++++++++++++++
 import ngoRoutes from "./routes/ngo.routes.js";
 
 app.use("/ngo", ngoRoutes);
-
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++
 import doctorRoutes from "./routes/doctor.routes.js";
@@ -75,12 +80,9 @@ import doctorRoutes from "./routes/doctor.routes.js";
 app.use("/doctor", doctorRoutes); // /doctor/profile
 // public routes already mounted as app.use("/", publicRoutes)
 
-
-
 //+++++++++++++++++++++++++++++++++++++++++++++++++
 import healthworkerRoutes from "./routes/healthworker.routes.js";
 app.use("/healthworker", healthworkerRoutes);
-
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++
 import patientRoutes from "./routes/patient.routes.js";
