@@ -14,7 +14,7 @@ const urlSchema = new mongoose.Schema(
     },
     walletAddress: {
       type: String,
-      default: "0x",
+      default: null,
     },
   },
   {
