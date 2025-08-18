@@ -28,13 +28,11 @@ app.use(morgan("dev"));
 app.use((req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Validation error",
-        errors: errors.array(),
-      });
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: errors.array(),
+    });
   }
   next();
 });
@@ -69,21 +67,22 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import ngoRoutes from "./routes/ngo.routes.js";
 
 app.use("/ngo", ngoRoutes);
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import doctorRoutes from "./routes/doctor.routes.js";
 
 app.use("/doctor", doctorRoutes); // /doctor/profile
 // public routes already mounted as app.use("/", publicRoutes)
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import healthworkerRoutes from "./routes/healthworker.routes.js";
 app.use("/healthworker", healthworkerRoutes);
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import patientRoutes from "./routes/patient.routes.js";
 app.use("/patient", patientRoutes);
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
