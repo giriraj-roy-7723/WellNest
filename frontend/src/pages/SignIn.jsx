@@ -30,7 +30,16 @@ export default function SignIn() {
 
     try {
       const res = await api.post("/auth/login", form);
-      setToken(res.data.data.tokens.accessToken);
+      const { user, tokens } = res.data.data || {};
+      if (tokens?.accessToken) {
+        setToken(tokens.accessToken);
+      }
+      if (user) {
+        localStorage.setItem("userRole", user.role);
+        localStorage.setItem("userId", user.id);
+        localStorage.setItem("firstName", user.firstName || "");
+        localStorage.setItem("lastName", user.lastName || "");
+      }
       navigate("/dashboard");
     } catch (err) {
       setError(err.message || "Failed to sign in");
