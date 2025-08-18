@@ -4,8 +4,10 @@ const cors = require("cors");
 const { connect } = require("./connect");
 const { authMiddleware } = require("./middlewares/auth.js");
 
-const staticRoute = require("./routes/staticRouter");
-const setRewardRoute = require("./routes/setRewardRouter");
+const staticRoute = require("./routes/moneyRouter.js");
+const setRewardRoute = require("./routes/setWalletRouter.js");
+const organiseRoute = require("./routes/organiseRouter.js");
+const participateRoute = require("./routes/participantsRouter.js");
 
 const app = express();
 const PORT = 8000;
@@ -22,5 +24,7 @@ app.use(authMiddleware);
 
 app.use("/pay", staticRoute);
 app.use("/reward", setRewardRoute);
+app.use("/organise", organiseRoute);
+app.use("/part", participateRoute);
 
 app.listen(PORT, () => console.log(`Server started at ${PORT}`));

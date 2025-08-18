@@ -30,5 +30,15 @@ async function authMiddleware(req, res, next) {
     return res.status(401).json({ error: "Authentication failed" });
   }
 }
+// middlewares/role.js
+function restrictRole(allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    next();
+  };
+}
 
-module.exports = { authMiddleware };
+
+module.exports = { authMiddleware, restrictRole };
