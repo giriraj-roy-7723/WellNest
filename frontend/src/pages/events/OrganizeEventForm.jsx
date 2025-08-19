@@ -16,6 +16,7 @@ import {
   CheckCircle,
   XCircle,
   Link,
+  DollarSign,
 } from "lucide-react";
 
 import "../../styles/event-styles/OrganizeEventForm.css";
@@ -62,6 +63,8 @@ const OrganizeEventForm = () => {
     locationURL: "",
     description: "",
     customEventName: "", // Added for "Other" event type
+    donationNeeded: false, // Added for backend compatibility
+    upiId: "", // Added for backend compatibility
   });
 
   const [loading, setLoading] = useState(false);
@@ -85,10 +88,10 @@ const OrganizeEventForm = () => {
   const canOrganize = ["ngo", "health_worker"].includes(role);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -97,18 +100,57 @@ const OrganizeEventForm = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.date) newErrors.date = "Date is required";
-    if (!formData.startTime) newErrors.startTime = "Start time is required";
-    if (!formData.endTime) newErrors.endTime = "End time is required";
-    if (formData.startTime >= formData.endTime)
-      newErrors.endTime = "End time must be after start time";
-    if (!formData.location.trim()) newErrors.location = "Location is required";
-    if (!formData.locationURL.trim())
+    const now = new Date();
+
+    if (!formData.date) {
+      newErrors.date = "Date is required";
+    }
+    if (!formData.startTime) {
+      newErrors.startTime = "Start time is required";
+    }
+    if (!formData.endTime) {
+      newErrors.endTime = "End time is required";
+    }
+
+    if (formData.date && formData.startTime && formData.endTime) {
+      // Build start/end Date objects for comparison
+      const eventDate = new Date(formData.date);
+
+      const [sh, sm] = formData.startTime.split(":");
+      const [eh, em] = formData.endTime.split(":");
+
+      const startDateTime = new Date(eventDate);
+      startDateTime.setHours(parseInt(sh), parseInt(sm), 0, 0);
+
+      const endDateTime = new Date(eventDate);
+      endDateTime.setHours(parseInt(eh), parseInt(em), 0, 0);
+
+      // Past date not allowed
+      if (startDateTime < now) {
+        newErrors.date = "Event must be scheduled in the future";
+      }
+
+      // End time must be after start
+      if (endDateTime <= startDateTime) {
+        newErrors.endTime = "End time must be after start time";
+      }
+    }
+
+    if (!formData.location.trim()) {
+      newErrors.location = "Location is required";
+    }
+    if (!formData.locationURL.trim()) {
       newErrors.locationURL = "Location URL is required";
+    }
 
     // Validate custom event name for "Other" type
     if (isOtherEvent && !formData.customEventName.trim()) {
       newErrors.customEventName = "Custom event name is required";
+    }
+
+    // Validate UPI ID if donations are needed
+    if (formData.donationNeeded && !formData.upiId.trim()) {
+      newErrors.upiId = "UPI ID is required when donations are needed";
     }
 
     setErrors(newErrors);
@@ -122,7 +164,6 @@ const OrganizeEventForm = () => {
     try {
       setLoading(true);
       setStatus("");
-
       // Create date objects for start and end times
       const eventDate = new Date(formData.date);
       const [startHours, startMinutes] = formData.startTime.split(":");
@@ -138,7 +179,6 @@ const OrganizeEventForm = () => {
 
       const endDateTime = new Date(eventDate);
       endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-
       // Prepare data according to backend schema
       const backendData = {
         eventType: eventTypeMapping[eventType] || eventType,
@@ -148,6 +188,8 @@ const OrganizeEventForm = () => {
         date: eventDate.toISOString(),
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
+        donationNeeded: formData.donationNeeded,
+        upiId: formData.donationNeeded ? formData.upiId : undefined,
       };
 
       console.log("Sending data to backend:", backendData);
@@ -360,6 +402,43 @@ const OrganizeEventForm = () => {
                   <p className="error-text">{errors.locationURL}</p>
                 )}
               </div>
+
+              {/* Donation Section */}
+              <div className="form-field">
+                <div className="checkbox-wrapper">
+                  <input
+                    type="checkbox"
+                    id="donationNeeded"
+                    name="donationNeeded"
+                    checked={formData.donationNeeded}
+                    onChange={handleInputChange}
+                  />
+                  <label htmlFor="donationNeeded" className="checkbox-label">
+                    <DollarSign className="label-icon" />
+                    Accept donations for this event
+                  </label>
+                </div>
+              </div>
+
+              {/* UPI ID - only show if donations are needed */}
+              {formData.donationNeeded && (
+                <div className="form-field">
+                  <label htmlFor="upiId">
+                    <DollarSign className="label-icon" /> UPI ID *
+                  </label>
+                  <input
+                    type="text"
+                    id="upiId"
+                    name="upiId"
+                    value={formData.upiId}
+                    onChange={handleInputChange}
+                    placeholder="your-upi@paytm"
+                    className={errors.upiId ? "error" : ""}
+                  />
+                  {errors.upiId && <p className="error-text">{errors.upiId}</p>}
+                </div>
+              )}
+
               {/* Submit */}
               <div className="submit-row">
                 <button

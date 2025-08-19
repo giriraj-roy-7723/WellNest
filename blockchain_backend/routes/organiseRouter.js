@@ -13,11 +13,13 @@ router.post(
     const {
       location,
       locationURL,
-      date,
-      startTime,
-      endTime,
+      date, // e.g. "2025-08-20"
+      startTime, // e.g. "09:00"
+      endTime, // e.g. "13:00"
       eventType,
       customEventName,
+      donationNeeded,
+      upiId,
     } = req.body;
 
     if (
@@ -32,7 +34,9 @@ router.post(
       !startTime ||
       !endTime ||
       !eventType ||
-      (eventType === "Other" && !customEventName)
+      !donationNeeded ||
+      (eventType === "Other" && !customEventName) ||
+      (donationNeeded == true && !upiId)
     ) {
       return res
         .status(400)
@@ -40,29 +44,52 @@ router.post(
     }
 
     try {
-      const updatedOrg = await ORG.findOneAndUpdate(
-        { shortId: req.user._id.toString() }, // match organiser by shortId
-        {
-          $set: {
-            name: req.user.firstName + " " + req.user.lastName,
-            email: req.user.email,
-            role: req.user.role,
-            location,
-            locationURL,
-            date,
-            startTime,
-            endTime,
-            eventType,
-            customEventName: eventType === "Other" ? customEventName : null,
+      // Convert to Date objects
+      // const startDateTime = new Date(`${date}T${startTime}`);
+      // const endDateTime = new Date(`${date}T${endTime}`);
+
+      if (endTime <= startTime) {
+        return res.status(400).json({
+          error: "End time must be greater than start time",
+        });
+      }
+
+      // Check for overlapping events for this organiser
+      const conflict = await ORG.findOne({
+        shortId: req.user._id.toString(),
+        $and: [
+          {
+            startTime: { $lt: endTime },
+            endTime: { $gt: startTime },
           },
-          $setOnInsert: {
-            shortId: req.user._id.toString(), // only set when creating
-          },
-        },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-      );
-      console.log(updatedOrg);
-      res.status(200).json({ success: true, updatedOrg });
+        ],
+      });
+
+      if (conflict) {
+        return res.status(400).json({
+          error:
+            "An event organised by you already exists in the selected time range.",
+        });
+      }
+
+      // Create a new event
+      const newEvent = await ORG.create({
+        shortId: req.user._id.toString(),
+        name: req.user.firstName + " " + req.user.lastName,
+        email: req.user.email,
+        role: req.user.role,
+        location,
+        locationURL,
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        eventType,
+        donationNeeded,
+        upiId: donationNeeded == true ? upiId : null,
+        customEventName: eventType === "Other" ? customEventName : null,
+      });
+
+      res.status(201).json({ success: true, event: newEvent });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -77,14 +104,13 @@ router.patch(
       return res.status(400).json({ error: "ALL flags are required" });
     }
     const { eventId } = req.params;
-    if(!eventId)
-      return res.status(400).json({ error: "eventId required" });
+    if (!eventId) return res.status(400).json({ error: "eventId required" });
 
     console.log("Delete Called");
     try {
       // Delete the organiser's event
       const deletedOrg = await ORG.findOneAndDelete({
-        _id:eventId,
+        _id: eventId,
       });
 
       if (!deletedOrg) {
