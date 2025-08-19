@@ -8,19 +8,19 @@ async function authMiddleware(req, res, next) {
     // 1. Get token from header
     const header = req.headers.authorization || "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : null;
-    console.log(token)
+    // console.log(token)
     if (!token) return res.status(401).json({ error: "No token provided" });
-    console.log("token provided")
+    // console.log("token provided")
     // 2. Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id)
       return res.status(401).json({ error: "Invalid token" });
-    console.log("Verify done");
+    // console.log("Verify done");
 
     // 3. Fetch full user from DB
-    const user = await USR.findById(decoded.id).select("-password");  // Exclude password
+    const user = await USR.findById(decoded.id).select("-password"); // Exclude password
     if (!user) return res.status(401).json({ error: "User not found" });
-    console.log("Fetch done");
+    console.log("Auth done");
 
     // 4. Attach user to request
     req.user = user;
@@ -39,6 +39,5 @@ function restrictRole(allowedRoles) {
     next();
   };
 }
-
 
 module.exports = { authMiddleware, restrictRole };
