@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import "../../styles/EventParticipantsPage.css";
+import "../../styles/event-styles/EventParticipantsPage.css";
 import Navbar from "../../components/Navbar.jsx";
 import { blockchainApi } from "../../utils/api.js"; // ✅ Axios instance
 

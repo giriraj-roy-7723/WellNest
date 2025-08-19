@@ -18,7 +18,7 @@ import {
   Link,
 } from "lucide-react";
 
-import "../../styles/OrganizeEventForm.css";
+import "../../styles/event-styles/OrganizeEventForm.css";
 import Navbar from "../../components/Navbar.jsx";
 import { blockchainApi } from "../../utils/api.js";
 import { removeToken } from "../../utils/auth.js";

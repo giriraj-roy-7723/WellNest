@@ -9,7 +9,7 @@ import {
   Clock,
 } from "lucide-react";
 import { blockchainApi } from "../../utils/api.js";
-import "../../styles/ParticipantRegistration.css";
+import "../../styles/event-styles/ParticipantRegistration.css";
 import Navbar from "../../components/Navbar.jsx";
 
 const ParticipantRegistration = () => {

@@ -14,9 +14,9 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-import "../../styles/EventListPage.css";
+import "../../styles/event-styles/EventListPage.css";
 import Navbar from "../../components/Navbar.jsx";
-import { blockchainApi } from "../../utils/api.js"; // ✅ use axios instance
+import { blockchainApi } from "../../utils/api.js"; // use axios instance
 
 const EventsListPage = () => {
   const navigate = useNavigate();
@@ -134,19 +134,47 @@ const EventsListPage = () => {
     });
   };
 
-  const handleDelete = async (eventId) => {
+  const handleDelete = async (event) => {
+    const eventId = event._id; // Ensure we use the MongoDB _id
+    if (!eventId) {
+      alert("Invalid event ID. Cannot delete.");
+      return;
+    }
+
+    // Confirm with user
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
+
     try {
-      const { data } = await blockchainApi.delete(
-        `/organise/delete/${eventId}`
-      );
+      console.log("Deleting event:", eventId);
+      const { data } = await blockchainApi.patch(`/organise/delete/${eventId}`);
+      console.log("Delete response:", data);
 
       if (data.success) {
-        await fetchEvents();
+        alert("Event deleted successfully!");
+        await fetchEvents(); // Refresh events list
       } else {
         alert(data.error || "Delete failed");
       }
-    } catch (e) {
-      alert("Delete error: " + e.message);
+    } catch (err) {
+      if (err.response) {
+        // Request reached backend but returned an error
+        if (err.response.status === 404) {
+          alert("Event not found or already deleted.");
+        } else {
+          alert(
+            `Delete failed with status ${err.response.status}: ${
+              err.response.data?.error || err.message
+            }`
+          );
+        }
+      } else if (err.request) {
+        // Request was sent but no response
+        alert("No response from server. Please check your network or backend.");
+      } else {
+        // Other errors
+        alert("Delete error: " + err.message);
+      }
+      console.error("Delete error details:", err);
     }
   };
 
@@ -214,71 +242,96 @@ const EventsListPage = () => {
           </div>
         ) : (
           <div className="events-grid">
-            {events.map((event) => (
-              <div key={event._id} className="event-card">
-                <div className="event-header">
-                  <div className="event-title">
-                    {eventIcons[eventType] || (
-                      <Calendar className="icon gray" />
+            {events.map((event) => {
+              const now = new Date();
+              const eventStart = new Date(`${event.date}T${event.startTime}`);
+              const eventEnd = new Date(`${event.date}T${event.endTime}`);
+
+              let actionButton;
+              if (now < eventStart) {
+                actionButton = (
+                  <button
+                    onClick={() => handleRegister(event)}
+                    className="btn btn-primary"
+                  >
+                    <Users className="icon small" />
+                    Register
+                  </button>
+                );
+              } else if (now >= eventStart && now <= eventEnd) {
+                actionButton = (
+                  <button className="btn btn-outline orange" disabled>
+                    <Clock className="icon small" />
+                    Event Started
+                  </button>
+                );
+              } else {
+                actionButton = (
+                  <button className="btn btn-outline gray" disabled>
+                    <Clock className="icon small" />
+                    Event Ended
+                  </button>
+                );
+              }
+
+              return (
+                <div key={event._id} className="event-card">
+                  <div className="event-header">
+                    <div className="event-title">
+                      {eventIcons[eventType] || (
+                        <Calendar className="icon gray" />
+                      )}
+                      <h3>{displayName}</h3>
+                    </div>
+                    {eventType === "blood-donation" && (
+                      <div className="rewards-badge">💰 Rewards</div>
                     )}
-                    <h3>{displayName}</h3>
                   </div>
-                  {eventType === "blood-donation" && (
-                    <div className="rewards-badge">💰 Rewards</div>
-                  )}
-                </div>
 
-                <div className="organizer">
-                  <User className="icon small gray" />
-                  <span>
-                    Organized by <b>{event.name}</b>
-                  </span>
-                </div>
-
-                <div className="details">
-                  <div>
-                    <Calendar className="icon small gray" />
-                    {formatDate(event.date)}
+                  <div className="organizer">
+                    <User className="icon small gray" />
+                    <span>
+                      Organized by <b>{event.name}</b>
+                    </span>
                   </div>
-                  <div>
-                    <Clock className="icon small gray" />
-                    {formatTime(event.startTime)} - {formatTime(event.endTime)}
-                  </div>
-                  <div>
-                    <MapPin className="icon small gray" />
-                    <span>{event.location}</span>
-                  </div>
-                </div>
 
-                {event.description && (
-                  <p className="description">{event.description}</p>
-                )}
+                  <div className="details">
+                    <div>
+                      <Calendar className="icon small gray" />
+                      {formatDate(event.date)}
+                    </div>
+                    <div>
+                      <Clock className="icon small gray" />
+                      {formatTime(event.startTime)} -{" "}
+                      {formatTime(event.endTime)}
+                    </div>
+                    <div>
+                      <MapPin className="icon small gray" />
+                      <span>{event.location}</span>
+                    </div>
+                  </div>
 
-                <div className="actions">
-                  {event.locationURL && (
-                    <a
-                      href={event.locationURL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline blue"
-                    >
-                      <MapPin className="icon small" />
-                      View Location
-                    </a>
+                  {event.description && (
+                    <p className="description">{event.description}</p>
                   )}
 
-                  {event.shortId !== currentUserId && (
-                    <button
-                      onClick={() => handleRegister(event)}
-                      className="btn btn-primary"
-                    >
-                      <Users className="icon small" />
-                      Register
-                    </button>
-                  )}
+                  <div className="actions">
+                    {event.locationURL && (
+                      <a
+                        href={event.locationURL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline blue"
+                      >
+                        <MapPin className="icon small" />
+                        View Location
+                      </a>
+                    )}
 
-                  {(event.shortId === currentUserId ||
-                    ["ngo", "health_worker"].includes(currentUserRole)) && (
+                    {event.shortId !== currentUserId && actionButton}
+
+                    {/* {(event.shortId === currentUserId || */}
+                    {/* ["ngo", "health_worker"].includes(currentUserRole)) && ( */}
                     <button
                       onClick={() => handleViewParticipants(event._id)}
                       className="btn btn-outline green"
@@ -286,42 +339,43 @@ const EventsListPage = () => {
                       <Users className="icon small" />
                       View Participants
                     </button>
-                  )}
+                    {/* )} */}
 
-                  {["ngo", "health_worker"].includes(currentUserRole) && (
-                    <button
-                      onClick={() =>
-                        navigate(`/events/organize/${eventType}`, {
-                          state: { eventTypeName: displayName },
-                        })
-                      }
-                      className="btn btn-outline purple"
-                    >
-                      <Plus className="icon small" />
-                      Organize Similar
-                    </button>
-                  )}
-
-                  {["ngo", "health_worker"].includes(currentUserRole) &&
-                    event.shortId === currentUserId && (
+                    {["ngo", "health_worker"].includes(currentUserRole) && (
                       <button
-                        onClick={() => handleDelete(event._id)}
-                        className="btn btn-outline red"
+                        onClick={() =>
+                          navigate(`/events/organize/${eventType}`, {
+                            state: { eventTypeName: displayName },
+                          })
+                        }
+                        className="btn btn-outline purple"
                       >
-                        Delete Event
+                        <Plus className="icon small" />
+                        Organize Similar
                       </button>
                     )}
-                </div>
 
-                <div className="participants-meta">
-                  <Users className="icon small gray" />
-                  <span>
-                    {participantsCounts[event._id] || 0} participant
-                    {(participantsCounts[event._id] || 0) === 1 ? "" : "s"}
-                  </span>
+                    {["ngo", "health_worker"].includes(currentUserRole) &&
+                      event.shortId === currentUserId && (
+                        <button
+                          onClick={() => handleDelete(event)}
+                          className="btn btn-outline red"
+                        >
+                          Delete Event
+                        </button>
+                      )}
+                  </div>
+
+                  <div className="participants-meta">
+                    <Users className="icon small gray" />
+                    <span>
+                      {participantsCounts[event._id] || 0} participant
+                      {(participantsCounts[event._id] || 0) === 1 ? "" : "s"}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

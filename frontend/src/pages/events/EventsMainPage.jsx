@@ -11,7 +11,7 @@ import {
   Award,
   TrendingUp,
 } from "lucide-react";
-import "../../styles/EventsMainPage.css";
+import "../../styles/event-styles/EventsMainPage.css";
 import Navbar from "../../components/Navbar.jsx";
 
 const EventsMainPage = () => {
