@@ -9,23 +9,27 @@ const { setUserReward } = require("../contractService/contract.js");
 
 const router = express.Router();
 
+// REGISTER PARTICIPANT
 router.post("/register", authMiddleware, async (req, res) => {
-  const { eventId } = req.body;
+  console.log("register called");
+  const { eventId, participantDetails } = req.body;
   if (!eventId) return res.status(400).json({ error: "eventId required" });
+  if (!participantDetails)
+    return res.status(400).json({ error: "participantDetails required" });
 
   try {
-    // Check if this user is the organiser of the event
+    // Check if the event exists
     const organiser = await ORG.findOne({ _id: eventId });
-    if (!organiser) {
-      return res.status(404).json({ error: "Event not found" });
-    }
+    if (!organiser) return res.status(404).json({ error: "Event not found" });
 
+    // Organiser cannot register for own event
     if (organiser.shortId === req.user._id.toString()) {
       return res
         .status(403)
         .json({ error: "Organiser cannot register for own event" });
     }
-    // check if user is already registered
+
+    // Check if user is already registered
     const existing = await PCT.findOne({ eventId, userId: req.user._id });
     if (existing) {
       return res
@@ -33,30 +37,38 @@ router.post("/register", authMiddleware, async (req, res) => {
         .json({ error: "Already registered for this event" });
     }
 
-    // directly create the participant
+    // Create participant with details
     let participant = await PCT.create({
       eventId,
       userId: req.user._id,
+      phone: participantDetails.phone,
+      age: participantDetails.age,
+      bloodType: participantDetails.bloodType || "B+",
+      medicalConditions: participantDetails.medicalConditions || "None",
     });
 
-    // populate with user details if you want
+    // Populate user info
     participant = await participant.populate("userId", "name email");
 
     res.status(201).json({ success: true, participant });
   } catch (err) {
+    // Handle unique phone conflict
+    if (err.code === 11000 && err.keyValue?.phone) {
+      return res.status(400).json({ error: "Phone number already registered" });
+    }
     res.status(500).json({ error: err.message });
   }
 });
 
+// GET PARTICIPANTS FOR AN EVENT
 router.get("/participants/:eventId", authMiddleware, async (req, res) => {
   const { eventId } = req.params;
   if (!eventId) return res.status(400).json({ error: "eventId required" });
 
   try {
-    // find all participants for that event
     const participants = await PCT.find({ eventId })
-      .populate("userId", "name email") // bring user details
-      .sort({ registeredAt: 1 }); // optional: order by time
+      .populate("userId", "firstName lastName email")
+      .sort({ registeredAt: 1 });
 
     res.status(200).json({ success: true, participants });
   } catch (err) {
@@ -64,25 +76,23 @@ router.get("/participants/:eventId", authMiddleware, async (req, res) => {
   }
 });
 
-// verify + reward participant
+// VERIFY + REWARD PARTICIPANT
 router.post("/verify/:participantId", authMiddleware, async (req, res) => {
   const { participantId } = req.params;
+  console.log("verifying");
   if (!participantId)
-    return res.status(400).json({ error: "eventId required" });
+    return res.status(400).json({ error: "participantId required" });
 
   try {
-    // 1. Find participant
     const participant = await PCT.findById(participantId);
     if (!participant) {
       return res.status(404).json({ error: "Participant not found" });
     }
 
-    // 2. Prevent double verification
     if (participant.verified) {
       return res.status(400).json({ error: "Participant already verified" });
     }
 
-    // 3. Get wallet address & current reward from DONATE collection
     const walletDoc = await DNT.findOne({
       shortId: participant.userId.toString(),
     });
@@ -90,17 +100,14 @@ router.post("/verify/:participantId", authMiddleware, async (req, res) => {
       return res.status(404).json({ error: "Wallet not found for user" });
     }
 
-    // 4. Call contract function to send tokens
-    const rewardAmount = 10; // or 5, as you decide
+    const rewardAmount = 10;
     if (walletDoc.walletAddress) {
       await setUserReward(walletDoc.walletAddress, rewardAmount);
     }
 
-    // 5. Mark participant as verified
     participant.verified = true;
     await participant.save();
 
-    // 6. Update reward in DONATE schema
     walletDoc.reward = (walletDoc.reward || 0) + rewardAmount;
     await walletDoc.save();
 

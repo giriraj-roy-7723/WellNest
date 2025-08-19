@@ -21,8 +21,30 @@ const organiserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      require: true,
+      required: true,
     },
+    eventType: {
+      type: String,
+      enum: [
+        "Free Health CheckUp",
+        "Vaccination Drive",
+        "Blood Donation Camp",
+        "Mobile Health Camp",
+        "Nutrition & Diet Camps",
+        "Other",
+      ],
+      required: true,
+    },
+
+    // If "Other" is chosen, store custom event name here
+    customEventName: {
+      type: String,
+      required: function () {
+        return this.eventType === "Other"; // ✅ only required when eventType = Other
+      },
+      trim: true,
+    },
+
     location: {
       type: String,
       default: null,
