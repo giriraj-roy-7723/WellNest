@@ -112,7 +112,7 @@ export default function Payment() {
         userId: user._id || user.id, // Use the actual user ID from the authenticated user
         amount: amount,
         reward: rewardTokens,
-        paymentMethod: selectedMethodsList[0], // Send the selected payment method
+        // paymentMethod: selectedMethodsList[0], // Send the selected payment method
       });
 
       if (response.status === 200) {

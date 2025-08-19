@@ -12,10 +12,12 @@ import {
   Truck,
   Apple,
   ArrowLeft,
+  DollarSign,
 } from "lucide-react";
 
 import "../../styles/event-styles/EventListPage.css";
 import Navbar from "../../components/Navbar.jsx";
+import DonationPopup from "../../components/DonationPopup.jsx";
 import { blockchainApi } from "../../utils/api.js"; // use axios instance
 
 const EventsListPage = () => {
@@ -27,6 +29,9 @@ const EventsListPage = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [participantsCounts, setParticipantsCounts] = useState({});
+  const [donationAmounts, setDonationAmounts] = useState({}); // Track donated amounts per event
+  const [showDonationPopup, setShowDonationPopup] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   const currentUserRole =
     userRole || localStorage.getItem("userRole") || "patient";
@@ -52,9 +57,34 @@ const EventsListPage = () => {
 
   const displayName = eventTypeName || eventTypeNames[eventType] || "Events";
 
+  // Helper function to get the display name for individual events
+  const getEventDisplayName = (event) => {
+    if (event.eventType === "Other" && event.customEventName) {
+      return event.customEventName;
+    }
+    return displayName;
+  };
+
   useEffect(() => {
     fetchEvents();
+    loadDonationAmounts();
   }, [eventType]);
+
+  const loadDonationAmounts = () => {
+    const savedAmounts = localStorage.getItem("donationAmounts");
+    if (savedAmounts) {
+      setDonationAmounts(JSON.parse(savedAmounts));
+    }
+  };
+
+  const saveDonationAmount = (eventId, amount) => {
+    const currentAmounts = JSON.parse(
+      localStorage.getItem("donationAmounts") || "{}"
+    );
+    currentAmounts[eventId] = (currentAmounts[eventId] || 0) + amount;
+    localStorage.setItem("donationAmounts", JSON.stringify(currentAmounts));
+    setDonationAmounts(currentAmounts);
+  };
 
   const fetchEvents = async () => {
     try {
@@ -86,6 +116,17 @@ const EventsListPage = () => {
 
         setEvents(fetched);
 
+        // Debug: Log the first event to see the data structure
+        if (fetched.length > 0) {
+          console.log("Sample event data:", {
+            date: fetched[0].date,
+            startTime: fetched[0].startTime,
+            endTime: fetched[0].endTime,
+            startTimeType: typeof fetched[0].startTime,
+            endTimeType: typeof fetched[0].endTime,
+          });
+        }
+
         // ✅ fetch participants counts per event
         const counts = await Promise.all(
           fetched.map(async (e) => {
@@ -115,7 +156,7 @@ const EventsListPage = () => {
     navigate(`/events/register/${event._id}`, {
       state: {
         eventDetails: {
-          eventTypeName: displayName,
+          eventTypeName: getEventDisplayName(event), // Use the helper function
           eventType,
           date: event.date,
           startTime: event.startTime,
@@ -132,6 +173,37 @@ const EventsListPage = () => {
     navigate(`/events/participants/${eventId}`, {
       state: { eventType, eventTypeName: displayName },
     });
+  };
+
+  const handleDonate = (event) => {
+    setSelectedEvent(event);
+    setShowDonationPopup(true);
+  };
+
+  const handleDonationSubmit = async (amount) => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const rewardTokens = Math.floor(amount / 10); // 1 token per 10 rupees
+
+      const response = await blockchainApi.patch("/pay/donate", {
+        userId: user._id || user.id,
+        amount: amount,
+        reward: rewardTokens,
+      });
+
+      if (response.data.success) {
+        // Save donation amount locally
+        saveDonationAmount(selectedEvent._id, amount);
+        alert(
+          `Donation successful! You received ${rewardTokens} reward tokens.`
+        );
+      } else {
+        throw new Error(response.data.error || "Donation failed");
+      }
+    } catch (error) {
+      console.error("Donation error:", error);
+      throw error;
+    }
   };
 
   const handleDelete = async (event) => {
@@ -192,7 +264,17 @@ const EventsListPage = () => {
   };
 
   const formatTime = (timeString) => {
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString("en-US", {
+    // Handle both ISO date strings and time strings
+    let date;
+    if (timeString.includes("T") || timeString.includes("Z")) {
+      // It's an ISO date string
+      date = new Date(timeString);
+    } else {
+      // It's a time string like "14:30"
+      date = new Date(`2000-01-01T${timeString}`);
+    }
+
+    return date.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
@@ -244,8 +326,55 @@ const EventsListPage = () => {
           <div className="events-grid">
             {events.map((event) => {
               const now = new Date();
-              const eventStart = new Date(`${event.date}T${event.startTime}`);
-              const eventEnd = new Date(`${event.date}T${event.endTime}`);
+
+              // Handle different date/time formats from backend
+              let eventStart, eventEnd;
+
+              // Debug logging
+              console.log("Event data for", event._id, {
+                date: event.date,
+                startTime: event.startTime,
+                endTime: event.endTime,
+                now: now.toISOString(),
+              });
+
+              if (
+                event.startTime &&
+                typeof event.startTime === "string" &&
+                (event.startTime.includes("T") || event.startTime.includes("Z"))
+              ) {
+                // Backend sends ISO date strings
+                eventStart = new Date(event.startTime);
+                eventEnd = new Date(event.endTime);
+              } else if (
+                event.startTime &&
+                typeof event.startTime === "string"
+              ) {
+                // Time strings like "14:30"
+                eventStart = new Date(
+                  `${event.date.split("T")[0]}T${event.startTime}`
+                );
+                eventEnd = new Date(
+                  `${event.date.split("T")[0]}T${event.endTime}`
+                );
+              } else {
+                // Fallback
+                eventStart = new Date(event.date);
+                eventEnd = new Date(event.date);
+                eventEnd.setHours(23, 59, 59, 999);
+              }
+
+              console.log("Parsed dates:", {
+                eventStart: eventStart.toISOString(),
+                eventEnd: eventEnd.toISOString(),
+                now: now.toISOString(),
+                isBeforeStart: now < eventStart,
+                isDuringEvent: now >= eventStart && now <= eventEnd,
+                isAfterEnd: now > eventEnd,
+              });
+
+              const totalDonated = donationAmounts[event._id] || 0;
+              const eventDisplayName = getEventDisplayName(event);
 
               let actionButton;
               if (now < eventStart) {
@@ -281,11 +410,16 @@ const EventsListPage = () => {
                       {eventIcons[eventType] || (
                         <Calendar className="icon gray" />
                       )}
-                      <h3>{displayName}</h3>
+                      <h3>{eventDisplayName}</h3>
                     </div>
-                    {eventType === "blood-donation" && (
-                      <div className="rewards-badge">💰 Rewards</div>
-                    )}
+                    <div className="event-badges">
+                      {eventType === "blood-donation" && (
+                        <div className="rewards-badge">💰 Rewards</div>
+                      )}
+                      {event.donationNeeded && (
+                        <div className="donation-badge">💝 Donations</div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="organizer">
@@ -302,8 +436,14 @@ const EventsListPage = () => {
                     </div>
                     <div>
                       <Clock className="icon small gray" />
-                      {formatTime(event.startTime)} -{" "}
-                      {formatTime(event.endTime)}
+                      {event.startTime && event.endTime ? (
+                        <>
+                          {formatTime(event.startTime)} -{" "}
+                          {formatTime(event.endTime)}
+                        </>
+                      ) : (
+                        "Time not specified"
+                      )}
                     </div>
                     <div>
                       <MapPin className="icon small gray" />
@@ -313,6 +453,14 @@ const EventsListPage = () => {
 
                   {event.description && (
                     <p className="description">{event.description}</p>
+                  )}
+
+                  {/* Show donation amount if user has donated */}
+                  {totalDonated > 0 && (
+                    <div className="donation-info">
+                      <DollarSign className="icon small green" />
+                      <span>You donated: ₹{totalDonated}</span>
+                    </div>
                   )}
 
                   <div className="actions">
@@ -330,8 +478,18 @@ const EventsListPage = () => {
 
                     {event.shortId !== currentUserId && actionButton}
 
-                    {/* {(event.shortId === currentUserId || */}
-                    {/* ["ngo", "health_worker"].includes(currentUserRole)) && ( */}
+                    {/* Donate button - show if donations needed and user is not organizer */}
+                    {event.donationNeeded &&
+                      event.shortId !== currentUserId && (
+                        <button
+                          onClick={() => handleDonate(event)}
+                          className="btn btn-outline green"
+                        >
+                          <DollarSign className="icon small" />
+                          Donate
+                        </button>
+                      )}
+
                     <button
                       onClick={() => handleViewParticipants(event._id)}
                       className="btn btn-outline green"
@@ -339,7 +497,6 @@ const EventsListPage = () => {
                       <Users className="icon small" />
                       View Participants
                     </button>
-                    {/* )} */}
 
                     {["ngo", "health_worker"].includes(currentUserRole) && (
                       <button
@@ -379,6 +536,24 @@ const EventsListPage = () => {
           </div>
         )}
       </div>
+
+      {/* Donation Popup */}
+      {showDonationPopup && selectedEvent && (
+        <DonationPopup
+          isOpen={showDonationPopup}
+          onClose={() => {
+            setShowDonationPopup(false);
+            setSelectedEvent(null);
+          }}
+          eventDetails={{
+            eventType: getEventDisplayName(selectedEvent), // Use the helper function here too
+            organizerName: selectedEvent.name,
+            location: selectedEvent.location,
+            upiId: selectedEvent.upiId,
+          }}
+          onDonate={handleDonationSubmit}
+        />
+      )}
     </div>
   );
 };

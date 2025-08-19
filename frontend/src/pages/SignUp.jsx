@@ -38,14 +38,6 @@ export default function SignUp() {
     if (!password) return "Password is required";
     if (password.length < 6) return "Password must be at least 6 characters";
     if (password.length > 128) return "Password is too long";
-    if (!/(?=.*[a-z])/.test(password))
-      return "Password must contain at least one lowercase letter";
-    if (!/(?=.*[A-Z])/.test(password))
-      return "Password must contain at least one uppercase letter";
-    if (!/(?=.*\d)/.test(password))
-      return "Password must contain at least one number";
-    if (!/(?=.*[@$!%*?&])/.test(password))
-      return "Password must contain at least one special character (@$!%*?&)";
     return "";
   };
 
@@ -218,7 +210,7 @@ export default function SignUp() {
               onChange={handleChange}
               onBlur={handleBlur}
               required
-              placeholder="Create a strong password"
+              placeholder="Create a password"
               className={fieldErrors.password ? "error" : ""}
               maxLength="128"
             />
@@ -226,34 +218,7 @@ export default function SignUp() {
               <div className="field-error">{fieldErrors.password}</div>
             )}
             <div className="password-requirements">
-              <small>
-                Password must contain:
-                <ul>
-                  <li
-                    className={/(?=.*[a-z])/.test(form.password) ? "valid" : ""}
-                  >
-                    One lowercase letter
-                  </li>
-                  <li
-                    className={/(?=.*[A-Z])/.test(form.password) ? "valid" : ""}
-                  >
-                    One uppercase letter
-                  </li>
-                  <li className={/(?=.*\d)/.test(form.password) ? "valid" : ""}>
-                    One number
-                  </li>
-                  <li
-                    className={
-                      /(?=.*[@$!%*?&])/.test(form.password) ? "valid" : ""
-                    }
-                  >
-                    One special character (@$!%*?&)
-                  </li>
-                  <li className={form.password.length >= 6 ? "valid" : ""}>
-                    At least 6 characters
-                  </li>
-                </ul>
-              </small>
+              <small>Password must be at least 6 characters long</small>
             </div>
           </div>
 
