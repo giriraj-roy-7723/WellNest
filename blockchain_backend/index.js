@@ -1,30 +1,38 @@
 const express = require("express");
-const cors = require("cors");
-
-const { connect } = require("./connect");
-const { authMiddleware } = require("./middlewares/auth.js");
-
-const staticRoute = require("./routes/moneyRouter.js");
-const setRewardRoute = require("./routes/setWalletRouter.js");
-const organiseRoute = require("./routes/organiseRouter.js");
-const participateRoute = require("./routes/participantsRouter.js");
-
 const app = express();
 const PORT = 8000;
+const path = require("path");
 
+const cors = require("cors");
 app.use(cors());
 
+const { connect } = require("./connect");
 connect("mongodb://localhost:27017/wellnest")
   .then(() => console.log("mongo started"))
   .catch((err) => console.log(err));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(authMiddleware);
 
+// Serve static files from uploads directory
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// const { authMiddleware } = require("./middlewares/auth.js");
+// app.use(authMiddleware);
+
+const staticRoute = require("./routes/moneyRouter.js");
 app.use("/pay", staticRoute);
-app.use("/reward", setRewardRoute);
+
+const setwalletRoute = require("./routes/setWalletRouter.js");
+app.use("/reward", setwalletRoute);
+
+const organiseRoute = require("./routes/organiseRouter.js");
 app.use("/organise", organiseRoute);
+
+const participateRoute = require("./routes/participantsRouter.js");
 app.use("/part", participateRoute);
+
+const outbreakRoute = require("./routes/outbreakRouter.js");
+app.use("/outbreak", outbreakRoute);
 
 app.listen(PORT, () => console.log(`Server started at ${PORT}`));

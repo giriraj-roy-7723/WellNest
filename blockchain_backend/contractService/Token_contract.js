@@ -8,7 +8,7 @@ const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 // 3. Load contract
-const contractDetails = require("./contract-details/details.json"); // ABI file from hardhat artifacts
+const contractDetails = require("./contract-details/Token_details.json"); // ABI file from hardhat artifacts
 const contractABI = contractDetails.abi;
 const contractAddress = contractDetails.address;
 

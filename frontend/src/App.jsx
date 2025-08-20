@@ -19,11 +19,17 @@ import HealthWorkersPage from "./pages/HealthWorkersPage";
 import Payment from "./pages/payment";
 import ProfilePage from "./pages/ProfilePage";
 import BlogsPage from "./pages/BlogsPage";
+
+//outbreak components
+import OutbreakPage from "./pages/OutBreakPage";
+
+// Events components
 import EventsMainPage from "./pages/events/EventsMainPage";
 import EventsListPage from "./pages/events/EventsListPage";
 import OrganizeEventForm from "./pages/events/OrganizeEventForm";
 import EventParticipantsPage from "./pages/events/EventParticipantsPage";
 import ParticipantRegistration from "./pages/events/ParticipantRegistration";
+
 import "./styles/main.css";
 
 function App() {
@@ -41,6 +47,7 @@ function App() {
               <Route path="/ngos" element={<NGOsPage />} />
               <Route path="/healthworkers" element={<HealthWorkersPage />} />
               <Route path="/payment" element={<Payment />} />
+              <Route path="/outbreak" element={<OutbreakPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/blogs" element={<BlogsPage />} />
 
