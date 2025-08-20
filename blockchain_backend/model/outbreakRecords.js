@@ -135,7 +135,7 @@ const outbreakSchema = new mongoose.Schema(
     images: {
       type: [String],
       required: true,
-      validate: [arrayLimit, "{PATH} must have at least one image"],
+      // validate: [arrayLimit, "{PATH} must have at least one image"],
     },
   },
   {

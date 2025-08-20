@@ -14,6 +14,21 @@ import api, { blockchainApi } from "../utils/api.js";
 import { getToken, removeToken } from "../utils/auth.js";
 import "../styles/OutbreakDashboard.css";
 
+// Constants
+const DISEASE_CATEGORIES = [
+  "respiratory",
+  "gastrointestinal",
+  "vector_borne",
+  "waterborne",
+  "foodborne",
+  "skin",
+  "neurological",
+  "other",
+];
+
+const REPORT_TYPES = ["outbreak", "health_survey", "emergency"];
+const SEVERITY_LEVELS = ["low", "moderate", "high", "critical"];
+
 // API service using axios
 const outbreakApi = {
   getAllReports: async (params = {}) => {
@@ -30,9 +45,48 @@ const outbreakApi = {
 
   submitReport: async (formData) => {
     try {
+      // Convert FormData to the exact structure the backend expects
+      const reportData = {
+        submittedBy: {
+          name: formData.get("submittedBy[name]"),
+          email: formData.get("submittedBy[email]"),
+          phoneNumber: formData.get("submittedBy[phoneNumber]") || "",
+        },
+        location: {
+          country: formData.get("location[country]"),
+          state: formData.get("location[state]"),
+          district: formData.get("location[district]"),
+          pincode: formData.get("location[pincode]") || "",
+          googleMapsLink: formData.get("location[googleMapsLink]") || "",
+        },
+        descriptionComponents: {
+          reportType: formData.get("descriptionComponents[reportType]"),
+          diseaseCategory: formData.get("descriptionComponents[diseaseCategory]"),
+          suspectedCases: parseInt(formData.get("descriptionComponents[suspectedCases]")),
+          basicInfo: formData.get("descriptionComponents[basicInfo]") || "",
+          symptoms: formData.get("descriptionComponents[symptoms]") || "",
+          additionalNotes: formData.get("descriptionComponents[additionalNotes]") || "",
+        },
+        severity: formData.get("severity"),
+      };
+
+      // Create a new FormData with the correct structure
+      const newFormData = new FormData();
+      
+      // Add the structured data as JSON
+      newFormData.append("submittedBy", JSON.stringify(reportData.submittedBy));
+      newFormData.append("location", JSON.stringify(reportData.location));
+      newFormData.append("descriptionComponents", JSON.stringify(reportData.descriptionComponents));
+      newFormData.append("severity", reportData.severity);
+      
+      // Add images
+      for (let i = 0; i < formData.getAll("images").length; i++) {
+        newFormData.append("images", formData.getAll("images")[i]);
+      }
+
       const response = await blockchainApi.post(
         "/outbreak/submit-public",
-        formData,
+        newFormData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
@@ -49,7 +103,13 @@ const outbreakApi = {
   verifyReport: async (reportId) => {
     try {
       const response = await blockchainApi.patch(
-        `/outbreak/verify/${reportId}`
+        `/outbreak/verify/${reportId}`,
+        {}, // Empty body since backend gets userId from auth token
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
       return response.data;
     } catch (error) {
@@ -84,20 +144,475 @@ const userApi = {
   },
 };
 
-const DISEASE_CATEGORIES = [
-  "respiratory",
-  "gastrointestinal",
-  "vector_borne",
-  "waterborne",
-  "foodborne",
-  "skin",
-  "neurological",
-  "other",
-];
+// Utility functions
+const getSeverityColor = (severity) => {
+  const colors = {
+    low: "severity-low",
+    moderate: "severity-moderate",
+    high: "severity-high",
+    critical: "severity-critical",
+  };
+  return colors[severity] || "severity-default";
+};
 
-const REPORT_TYPES = ["outbreak", "health_survey", "emergency"];
-const SEVERITY_LEVELS = ["low", "moderate", "high", "critical"];
+const isRecentReport = (createdAt) => {
+  const reportDate = new Date(createdAt);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  return reportDate >= sevenDaysAgo;
+};
 
+const getRoleDisplayName = (role) => {
+  const roleNames = {
+    public: "Public User",
+    ngo: "NGO Worker",
+    health_worker: "Health Worker",
+    doctor: "Doctor",
+    patient: "Patient",
+  };
+  return roleNames[role] || "Public User";
+};
+
+// Report Card Component
+const ReportCard = ({ 
+  report, 
+  userRole, 
+  onVerify, 
+  onToggleStatus, 
+  isAuthenticated 
+}) => {
+  const canManageReports = (userRole === "ngo" || userRole === "health_worker") && isAuthenticated;
+
+  return (
+    <div className="report-card">
+      <div className="report-header">
+        <div className="report-info">
+          <div className="report-badges">
+            <span className={`severity-badge ${getSeverityColor(report.severity)}`}>
+              {report.severity.toUpperCase()}
+            </span>
+            {!report.isActive && (
+              <span className="inactive-badge">INACTIVE</span>
+            )}
+            <span className="type-badge">
+              {report.descriptionComponents.reportType
+                .replace("_", " ")
+                .toUpperCase()}
+            </span>
+          </div>
+          <h3 className="report-title">
+            {report.descriptionComponents.diseaseCategory.replace("_", " ")} Outbreak
+          </h3>
+          <div className="report-location">
+            <MapPin className="location-icon" />
+            {report.location.district}, {report.location.state}, {report.location.country}
+          </div>
+          <div className="report-date">
+            <Calendar className="date-icon" />
+            {new Date(report.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+
+        {/* Action buttons for authorized users */}
+        {canManageReports && (
+          <div className="action-buttons">
+            {!report.verifiedBy && (
+              <button
+                onClick={() => onVerify(report.id)}
+                className="verify-btn"
+              >
+                <CheckCircle className="btn-icon" />
+                Verify
+              </button>
+            )}
+            <button
+              onClick={() => onToggleStatus(report.id)}
+              className={`toggle-btn ${report.isActive ? "deactivate" : "activate"}`}
+            >
+              {report.isActive ? (
+                <XCircle className="btn-icon" />
+              ) : (
+                <CheckCircle className="btn-icon" />
+              )}
+              {report.isActive ? "Deactivate" : "Activate"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="report-details">
+        <div>
+          <p className="detail-label">Suspected Cases</p>
+          <p className="detail-value">
+            {report.descriptionComponents.suspectedCases}
+          </p>
+        </div>
+        <div>
+          <p className="detail-label">Reported By</p>
+          <p className="detail-value">
+            {report.submittedBy.name}
+          </p>
+        </div>
+      </div>
+
+      {report.descriptionComponents.symptoms && (
+        <div className="symptoms-section">
+          <p className="section-label">Symptoms</p>
+          <p className="section-content">
+            {report.descriptionComponents.symptoms}
+          </p>
+        </div>
+      )}
+
+      {report.images && report.images.length > 0 && (
+        <div className="images-section">
+          <p className="section-label">Evidence Images</p>
+          <div className="images-grid">
+            {report.images.map((image, idx) => (
+              <img
+                key={idx}
+                src={`http://localhost:8000${image}`}
+                alt={`Evidence ${idx + 1}`}
+                className="evidence-image"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {report.verifiedBy && (
+        <div className="verified-section">
+          <CheckCircle className="verified-icon" />
+          <span className="verified-text">Verified</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Submit Report Form Component
+const SubmitReportForm = ({ 
+  showForm, 
+  setShowForm, 
+  formData, 
+  setFormData, 
+  selectedImages, 
+  setSelectedImages, 
+  onSubmit, 
+  loading 
+}) => {
+  if (!showForm) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h2 className="modal-title">Submit Outbreak Report</h2>
+          <button onClick={() => setShowForm(false)} className="close-btn">
+            <X className="close-icon" />
+          </button>
+        </div>
+
+        <div className="form-content">
+          {/* Personal Information */}
+          <div className="form-section">
+            <h3 className="section-title">Personal Information</h3>
+            <div className="form-grid-3">
+              <input
+                type="text"
+                placeholder="Full Name"
+                required
+                className="form-input"
+                value={formData.submittedBy.name}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    submittedBy: {
+                      ...formData.submittedBy,
+                      name: e.target.value,
+                    },
+                  })
+                }
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                required
+                className="form-input"
+                value={formData.submittedBy.email}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    submittedBy: {
+                      ...formData.submittedBy,
+                      email: e.target.value,
+                    },
+                  })
+                }
+              />
+              <input
+                type="tel"
+                placeholder="Phone Number"
+                className="form-input"
+                value={formData.submittedBy.phoneNumber}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    submittedBy: {
+                      ...formData.submittedBy,
+                      phoneNumber: e.target.value,
+                    },
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          {/* Location Information */}
+          <div className="form-section">
+            <h3 className="section-title">Location Information</h3>
+            <div className="form-grid-4">
+              <input
+                type="text"
+                placeholder="State"
+                required
+                className="form-input"
+                value={formData.location.state}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    location: {
+                      ...formData.location,
+                      state: e.target.value,
+                    },
+                  })
+                }
+              />
+              <input
+                type="text"
+                placeholder="District"
+                required
+                className="form-input"
+                value={formData.location.district}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    location: {
+                      ...formData.location,
+                      district: e.target.value,
+                    },
+                  })
+                }
+              />
+              <input
+                type="text"
+                placeholder="Pincode"
+                className="form-input"
+                value={formData.location.pincode}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    location: {
+                      ...formData.location,
+                      pincode: e.target.value,
+                    },
+                  })
+                }
+              />
+              <input
+                type="url"
+                placeholder="Google Maps Link"
+                required
+                className="form-input"
+                value={formData.location.googleMapsLink}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    location: {
+                      ...formData.location,
+                      googleMapsLink: e.target.value,
+                    },
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          {/* Report Details */}
+          <div className="form-section">
+            <h3 className="section-title">Report Details</h3>
+            <div className="form-grid-4">
+              <select
+                required
+                className="form-select"
+                value={formData.descriptionComponents.reportType}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    descriptionComponents: {
+                      ...formData.descriptionComponents,
+                      reportType: e.target.value,
+                    },
+                  })
+                }
+              >
+                {REPORT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type.replace("_", " ").charAt(0).toUpperCase() +
+                      type.replace("_", " ").slice(1)}
+                  </option>
+                ))}
+              </select>
+              <select
+                required
+                className="form-select"
+                value={formData.descriptionComponents.diseaseCategory}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    descriptionComponents: {
+                      ...formData.descriptionComponents,
+                      diseaseCategory: e.target.value,
+                    },
+                  })
+                }
+              >
+                <option value="">Select Disease Category</option>
+                {DISEASE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category
+                      .replace("_", " ")
+                      .charAt(0)
+                      .toUpperCase() +
+                      category.replace("_", " ").slice(1)}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                placeholder="Suspected Cases"
+                min="0"
+                required
+                className="form-input"
+                value={formData.descriptionComponents.suspectedCases}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    descriptionComponents: {
+                      ...formData.descriptionComponents,
+                      suspectedCases: parseInt(e.target.value) || 0,
+                    },
+                  })
+                }
+              />
+              <select
+                required
+                className="form-select"
+                value={formData.severity}
+                onChange={(e) =>
+                  setFormData({ ...formData, severity: e.target.value })
+                }
+              >
+                {SEVERITY_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-textareas">
+              <textarea
+                placeholder="Basic Information"
+                className="form-textarea"
+                rows="3"
+                value={formData.descriptionComponents.basicInfo}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    descriptionComponents: {
+                      ...formData.descriptionComponents,
+                      basicInfo: e.target.value,
+                    },
+                  })
+                }
+              />
+              <textarea
+                placeholder="Symptoms"
+                className="form-textarea"
+                rows="3"
+                value={formData.descriptionComponents.symptoms}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    descriptionComponents: {
+                      ...formData.descriptionComponents,
+                      symptoms: e.target.value,
+                    },
+                  })
+                }
+              />
+              <textarea
+                placeholder="Additional Notes"
+                className="form-textarea"
+                rows="3"
+                value={formData.descriptionComponents.additionalNotes}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    descriptionComponents: {
+                      ...formData.descriptionComponents,
+                      additionalNotes: e.target.value,
+                    },
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div className="form-section">
+            <h3 className="section-title">Evidence Images (Optional)</h3>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) =>
+                setSelectedImages(Array.from(e.target.files))
+              }
+              className="file-input"
+            />
+            {selectedImages.length > 0 && (
+              <p className="file-info">
+                {selectedImages.length} image(s) selected
+              </p>
+            )}
+          </div>
+
+          <div className="form-actions">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="cancel-btn"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={loading}
+              className="submit-btn"
+            >
+              {loading ? "Submitting..." : "Submit Report"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main Component
 const OutbreakDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("reports");
@@ -145,27 +660,34 @@ const OutbreakDashboard = () => {
   const fetchCurrentUser = async () => {
     try {
       const userData = await userApi.getCurrentUser();
-      setCurrentUser(userData.user);
+      console.log("User data received:", userData); // Debug log
+      
+      if (userData.success && userData.data && userData.data.user) {
+        const user = userData.data.user;
+        setCurrentUser(user);
+        
+        // Set user role based on the user's role from backend
+        if (user.role && ["ngo", "health_worker", "doctor", "patient"].includes(user.role)) {
+          setUserRole(user.role);
+          console.log("User role set to:", user.role); // Debug log
+        } else {
+          setUserRole("public");
+          console.log("User role set to public"); // Debug log
+        }
 
-      // Set user role based on the user's role from backend
-      if (
-        userData.user?.role === "ngo" ||
-        userData.user?.role === "health_worker"
-      ) {
-        setUserRole(userData.user.role);
+        // Pre-fill form with user data if available
+        setFormData((prev) => ({
+          ...prev,
+          submittedBy: {
+            name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "",
+            email: user.email || "",
+            phoneNumber: user.phone || "",
+          },
+        }));
       } else {
+        console.log("Invalid user data structure:", userData); // Debug log
         setUserRole("public");
       }
-
-      // Pre-fill form with user data if available
-      setFormData((prev) => ({
-        ...prev,
-        submittedBy: {
-          name: userData.user?.name || "",
-          email: userData.user?.email || "",
-          phoneNumber: userData.user?.phoneNumber || "",
-        },
-      }));
     } catch (error) {
       console.error("Error fetching user data:", error);
       // If error fetching user, treat as public user
@@ -212,14 +734,29 @@ const OutbreakDashboard = () => {
 
     const formDataToSend = new FormData();
 
-    // Add form fields
-    Object.keys(formData).forEach((key) => {
-      if (typeof formData[key] === "object") {
-        formDataToSend.append(key, JSON.stringify(formData[key]));
-      } else {
-        formDataToSend.append(key, formData[key]);
-      }
-    });
+    // Flatten the nested form data structure for backend compatibility
+    // submittedBy fields
+    formDataToSend.append("submittedBy[name]", formData.submittedBy.name);
+    formDataToSend.append("submittedBy[email]", formData.submittedBy.email);
+    formDataToSend.append("submittedBy[phoneNumber]", formData.submittedBy.phoneNumber || "");
+
+    // location fields
+    formDataToSend.append("location[country]", formData.location.country);
+    formDataToSend.append("location[state]", formData.location.state);
+    formDataToSend.append("location[district]", formData.location.district);
+    formDataToSend.append("location[pincode]", formData.location.pincode || "");
+    formDataToSend.append("location[googleMapsLink]", formData.location.googleMapsLink || "");
+
+    // descriptionComponents fields
+    formDataToSend.append("descriptionComponents[reportType]", formData.descriptionComponents.reportType);
+    formDataToSend.append("descriptionComponents[diseaseCategory]", formData.descriptionComponents.diseaseCategory);
+    formDataToSend.append("descriptionComponents[suspectedCases]", formData.descriptionComponents.suspectedCases);
+    formDataToSend.append("descriptionComponents[basicInfo]", formData.descriptionComponents.basicInfo || "");
+    formDataToSend.append("descriptionComponents[symptoms]", formData.descriptionComponents.symptoms || "");
+    formDataToSend.append("descriptionComponents[additionalNotes]", formData.descriptionComponents.additionalNotes || "");
+
+    // severity
+    formDataToSend.append("severity", formData.severity);
 
     // Add images
     selectedImages.forEach((image) => {
@@ -251,9 +788,9 @@ const OutbreakDashboard = () => {
   const resetForm = () => {
     setFormData({
       submittedBy: {
-        name: currentUser?.name || "",
+        name: currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || "" : "",
         email: currentUser?.email || "",
-        phoneNumber: currentUser?.phoneNumber || "",
+        phoneNumber: currentUser?.phone || "",
       },
       location: {
         country: "India",
@@ -329,23 +866,6 @@ const OutbreakDashboard = () => {
     }
   };
 
-  const getSeverityColor = (severity) => {
-    const colors = {
-      low: "severity-low",
-      moderate: "severity-moderate",
-      high: "severity-high",
-      critical: "severity-critical",
-    };
-    return colors[severity] || "severity-default";
-  };
-
-  const isRecentReport = (createdAt) => {
-    const reportDate = new Date(createdAt);
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return reportDate >= sevenDaysAgo;
-  };
-
   const filteredReports = reports.filter((report) => {
     if (filters.includeInactive) return true;
     return report.isActive && isRecentReport(report.createdAt);
@@ -356,14 +876,7 @@ const OutbreakDashboard = () => {
     navigate("/signin");
   };
 
-  const getRoleDisplayName = (role) => {
-    const roleNames = {
-      public: "Public User",
-      ngo: "NGO Worker",
-      health_worker: "Health Worker",
-    };
-    return roleNames[role] || "Public User";
-  };
+  const isAuthenticated = !!getToken();
 
   return (
     <div className="page">
@@ -387,7 +900,7 @@ const OutbreakDashboard = () => {
                   </span>
                   {currentUser && (
                     <span className="user-name">
-                      Welcome, {currentUser.name}
+                      Welcome, {currentUser.firstName || currentUser.name || "User"}
                     </span>
                   )}
                 </div>
@@ -490,439 +1003,30 @@ const OutbreakDashboard = () => {
                 </div>
               ) : (
                 filteredReports.map((report) => (
-                  <div key={report.id} className="report-card">
-                    <div className="report-header">
-                      <div className="report-info">
-                        <div className="report-badges">
-                          <span
-                            className={`severity-badge ${getSeverityColor(
-                              report.severity
-                            )}`}
-                          >
-                            {report.severity.toUpperCase()}
-                          </span>
-                          {!report.isActive && (
-                            <span className="inactive-badge">INACTIVE</span>
-                          )}
-                          <span className="type-badge">
-                            {report.descriptionComponents.reportType
-                              .replace("_", " ")
-                              .toUpperCase()}
-                          </span>
-                        </div>
-                        <h3 className="report-title">
-                          {report.descriptionComponents.diseaseCategory.replace(
-                            "_",
-                            " "
-                          )}{" "}
-                          Outbreak
-                        </h3>
-                        <div className="report-location">
-                          <MapPin className="location-icon" />
-                          {report.location.district}, {report.location.state},{" "}
-                          {report.location.country}
-                        </div>
-                        <div className="report-date">
-                          <Calendar className="date-icon" />
-                          {new Date(report.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-
-                      {/* Action buttons for authorized users */}
-                      {(userRole === "ngo" || userRole === "health_worker") &&
-                        getToken() && (
-                          <div className="action-buttons">
-                            {!report.verifiedBy && (
-                              <button
-                                onClick={() => handleVerifyReport(report.id)}
-                                className="verify-btn"
-                              >
-                                <CheckCircle className="btn-icon" />
-                                Verify
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleToggleStatus(report.id)}
-                              className={`toggle-btn ${
-                                report.isActive ? "deactivate" : "activate"
-                              }`}
-                            >
-                              {report.isActive ? (
-                                <XCircle className="btn-icon" />
-                              ) : (
-                                <CheckCircle className="btn-icon" />
-                              )}
-                              {report.isActive ? "Deactivate" : "Activate"}
-                            </button>
-                          </div>
-                        )}
-                    </div>
-
-                    <div className="report-details">
-                      <div>
-                        <p className="detail-label">Suspected Cases</p>
-                        <p className="detail-value">
-                          {report.descriptionComponents.suspectedCases}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="detail-label">Reported By</p>
-                        <p className="detail-value">
-                          {report.submittedBy.name}
-                        </p>
-                      </div>
-                    </div>
-
-                    {report.descriptionComponents.symptoms && (
-                      <div className="symptoms-section">
-                        <p className="section-label">Symptoms</p>
-                        <p className="section-content">
-                          {report.descriptionComponents.symptoms}
-                        </p>
-                      </div>
-                    )}
-
-                    {report.images && report.images.length > 0 && (
-                      <div className="images-section">
-                        <p className="section-label">Evidence Images</p>
-                        <div className="images-grid">
-                          {report.images.map((image, idx) => (
-                            <img
-                              key={idx}
-                              src={`http://localhost:8000${image}`}
-                              alt={`Evidence ${idx + 1}`}
-                              className="evidence-image"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {report.verifiedBy && (
-                      <div className="verified-section">
-                        <CheckCircle className="verified-icon" />
-                        <span className="verified-text">Verified</span>
-                      </div>
-                    )}
-                  </div>
+                  <ReportCard
+                    key={report.id}
+                    report={report}
+                    userRole={userRole}
+                    onVerify={handleVerifyReport}
+                    onToggleStatus={handleToggleStatus}
+                    isAuthenticated={isAuthenticated}
+                  />
                 ))
               )}
             </div>
           )}
 
           {/* Submit Report Form */}
-          {showForm && (
-            <div className="modal-overlay">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h2 className="modal-title">Submit Outbreak Report</h2>
-                  <button
-                    onClick={() => setShowForm(false)}
-                    className="close-btn"
-                  >
-                    <X className="close-icon" />
-                  </button>
-                </div>
-
-                <div className="form-content">
-                  {/* Personal Information */}
-                  <div className="form-section">
-                    <h3 className="section-title">Personal Information</h3>
-                    <div className="form-grid-3">
-                      <input
-                        type="text"
-                        placeholder="Full Name"
-                        required
-                        className="form-input"
-                        value={formData.submittedBy.name}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            submittedBy: {
-                              ...formData.submittedBy,
-                              name: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <input
-                        type="email"
-                        placeholder="Email"
-                        required
-                        className="form-input"
-                        value={formData.submittedBy.email}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            submittedBy: {
-                              ...formData.submittedBy,
-                              email: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <input
-                        type="tel"
-                        placeholder="Phone Number"
-                        className="form-input"
-                        value={formData.submittedBy.phoneNumber}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            submittedBy: {
-                              ...formData.submittedBy,
-                              phoneNumber: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Location Information */}
-                  <div className="form-section">
-                    <h3 className="section-title">Location Information</h3>
-                    <div className="form-grid-4">
-                      <input
-                        type="text"
-                        placeholder="State"
-                        required
-                        className="form-input"
-                        value={formData.location.state}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            location: {
-                              ...formData.location,
-                              state: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        placeholder="District"
-                        required
-                        className="form-input"
-                        value={formData.location.district}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            location: {
-                              ...formData.location,
-                              district: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        placeholder="Pincode"
-                        className="form-input"
-                        value={formData.location.pincode}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            location: {
-                              ...formData.location,
-                              pincode: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <input
-                        type="url"
-                        placeholder="Google Maps Link"
-                        required
-                        className="form-input"
-                        value={formData.location.googleMapsLink}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            location: {
-                              ...formData.location,
-                              googleMapsLink: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Report Details */}
-                  <div className="form-section">
-                    <h3 className="section-title">Report Details</h3>
-                    <div className="form-grid-4">
-                      <select
-                        required
-                        className="form-select"
-                        value={formData.descriptionComponents.reportType}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            descriptionComponents: {
-                              ...formData.descriptionComponents,
-                              reportType: e.target.value,
-                            },
-                          })
-                        }
-                      >
-                        {REPORT_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type.replace("_", " ").charAt(0).toUpperCase() +
-                              type.replace("_", " ").slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        required
-                        className="form-select"
-                        value={formData.descriptionComponents.diseaseCategory}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            descriptionComponents: {
-                              ...formData.descriptionComponents,
-                              diseaseCategory: e.target.value,
-                            },
-                          })
-                        }
-                      >
-                        <option value="">Select Disease Category</option>
-                        {DISEASE_CATEGORIES.map((category) => (
-                          <option key={category} value={category}>
-                            {category
-                              .replace("_", " ")
-                              .charAt(0)
-                              .toUpperCase() +
-                              category.replace("_", " ").slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        placeholder="Suspected Cases"
-                        min="0"
-                        required
-                        className="form-input"
-                        value={formData.descriptionComponents.suspectedCases}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            descriptionComponents: {
-                              ...formData.descriptionComponents,
-                              suspectedCases: parseInt(e.target.value) || 0,
-                            },
-                          })
-                        }
-                      />
-                      <select
-                        required
-                        className="form-select"
-                        value={formData.severity}
-                        onChange={(e) =>
-                          setFormData({ ...formData, severity: e.target.value })
-                        }
-                      >
-                        {SEVERITY_LEVELS.map((level) => (
-                          <option key={level} value={level}>
-                            {level.charAt(0).toUpperCase() + level.slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-textareas">
-                      <textarea
-                        placeholder="Basic Information"
-                        className="form-textarea"
-                        rows="3"
-                        value={formData.descriptionComponents.basicInfo}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            descriptionComponents: {
-                              ...formData.descriptionComponents,
-                              basicInfo: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <textarea
-                        placeholder="Symptoms"
-                        className="form-textarea"
-                        rows="3"
-                        value={formData.descriptionComponents.symptoms}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            descriptionComponents: {
-                              ...formData.descriptionComponents,
-                              symptoms: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                      <textarea
-                        placeholder="Additional Notes"
-                        className="form-textarea"
-                        rows="3"
-                        value={formData.descriptionComponents.additionalNotes}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            descriptionComponents: {
-                              ...formData.descriptionComponents,
-                              additionalNotes: e.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Image Upload */}
-                  <div className="form-section">
-                    <h3 className="section-title">
-                      Evidence Images (Optional)
-                    </h3>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={(e) =>
-                        setSelectedImages(Array.from(e.target.files))
-                      }
-                      className="file-input"
-                    />
-                    {selectedImages.length > 0 && (
-                      <p className="file-info">
-                        {selectedImages.length} image(s) selected
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      onClick={() => setShowForm(false)}
-                      className="cancel-btn"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSubmitReport}
-                      disabled={loading}
-                      className="submit-btn"
-                    >
-                      {loading ? "Submitting..." : "Submit Report"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <SubmitReportForm
+            showForm={showForm}
+            setShowForm={setShowForm}
+            formData={formData}
+            setFormData={setFormData}
+            selectedImages={selectedImages}
+            setSelectedImages={setSelectedImages}
+            onSubmit={handleSubmitReport}
+            loading={loading}
+          />
         </div>
       </div>
     </div>

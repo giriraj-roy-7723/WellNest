@@ -57,25 +57,27 @@ const upload = multer({
 // Helper function to verify data integrity against blockchain (unchanged)
 const verifyDataIntegrity = async (localRecord) => {
   try {
-    // Create the expected data hash from local record
+    // Create the expected data hash from local record - MUST MATCH the structure used when submitting
     const expectedData = JSON.stringify({
-      reportType: localRecord.descriptionComponents.reportType,
+      reportType: localRecord.descriptionComponents.reportType.toLowerCase(),
       location: {
-        country: localRecord.location.country,
-        state: localRecord.location.state,
-        district: localRecord.location.district,
-        pincode: localRecord.location.pincode || "",
+        country: localRecord.location.country.toLowerCase(),
+        state: localRecord.location.state.toLowerCase(),
+        district: localRecord.location.district.toLowerCase(),
+        pincode: localRecord.location.pincode.toLowerCase() || "",
       },
       outbreakData: {
-        diseaseCategory: localRecord.descriptionComponents.diseaseCategory,
+        diseaseCategory:
+          localRecord.descriptionComponents.diseaseCategory.toLowerCase(),
         suspectedCases: localRecord.descriptionComponents.suspectedCases,
-        severity: localRecord.severity,
-        basicInfo: localRecord.descriptionComponents.basicInfo || "",
-        symptoms: localRecord.descriptionComponents.symptoms || "",
+        severity: localRecord.severity.toLowerCase(),
+        basicInfo:
+          localRecord.descriptionComponents.basicInfo.toLowerCase() || "",
+        symptoms:
+          localRecord.descriptionComponents.symptoms.toLowerCase() || "",
         additionalNotes:
-          localRecord.descriptionComponents.additionalNotes || "",
+          localRecord.descriptionComponents.additionalNotes.toLowerCase() || "",
       },
-      //   submittedAt: localRecord.createdAt.toISOString(),
     });
     console.log("Expected Data:", expectedData);
     const expectedHash = createDataHash(expectedData);
@@ -83,19 +85,29 @@ const verifyDataIntegrity = async (localRecord) => {
     try {
       // Try to get blockchain data
       const blockchainData = await getReportDetails(expectedHash);
-      console.log("Blochain data:", blockchainData);
-      // If we get data back, compare key fields
+      console.log("Blockchain data:", blockchainData);
+      console.log("Local record data:", {
+        reportType: localRecord.descriptionComponents.reportType,
+        country: localRecord.location.country,
+        state: localRecord.location.state,
+        district: localRecord.location.district,
+        submittedBy: localRecord.submittedBy.name,
+      });
+
+      // If we get data back, compare key fields - both should be lowercase for comparison
       const isIntegrityValid =
         blockchainData.reportType.toLowerCase() ===
-          localRecord.descriptionComponents.reportType &&
+          localRecord.descriptionComponents.reportType.toLowerCase() &&
         blockchainData.location.country.toLowerCase() ===
-          localRecord.location.country &&
+          localRecord.location.country.toLowerCase() &&
         blockchainData.location.state.toLowerCase() ===
-          localRecord.location.state &&
+          localRecord.location.state.toLowerCase() &&
         blockchainData.location.district.toLowerCase() ===
-          localRecord.location.district &&
+          localRecord.location.district.toLowerCase() &&
         blockchainData.submittedBy.toLowerCase() ===
           localRecord.submittedBy.name.toLowerCase();
+
+      console.log("Integrity check result:", isIntegrityValid);
 
       return {
         tampered: !isIntegrityValid,
@@ -170,8 +182,23 @@ router.post(
   upload.array("images", 5),
   async (req, res) => {
     try {
-      const { location, descriptionComponents, severity, submittedBy } =
-        req.body;
+      // Parse JSON strings from FormData
+      let location, descriptionComponents, severity, submittedBy;
+      
+      try {
+        location = typeof req.body.location === 'string' ? JSON.parse(req.body.location) : req.body.location;
+        descriptionComponents = typeof req.body.descriptionComponents === 'string' ? JSON.parse(req.body.descriptionComponents) : req.body.descriptionComponents;
+        severity = req.body.severity;
+        submittedBy = typeof req.body.submittedBy === 'string' ? JSON.parse(req.body.submittedBy) : req.body.submittedBy;
+      } catch (parseError) {
+        console.error("Error parsing FormData JSON:", parseError);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid data format. Please check your form submission.",
+          error: parseError.message
+        });
+      }
+      
       const { userId, email } = req.user; // from auth middleware
       const uploadedFiles = req.files || [];
 
@@ -216,6 +243,15 @@ router.post(
         (file) => `/uploads/${file.filename}`
       );
 
+      // Debug logging
+      console.log("Parsed data from authenticated FormData:", {
+        location,
+        descriptionComponents,
+        severity,
+        submittedBy,
+        imageCount: uploadedFiles.length
+      });
+
       // Create the actual data string for hashing (blockchain data)
       const actualData = JSON.stringify({
         reportType: descriptionComponents.reportType.toLowerCase(),
@@ -234,23 +270,8 @@ router.post(
           additionalNotes:
             descriptionComponents.additionalNotes.toLowerCase() || "",
         },
-        //   submittedAt: new Date().toISOString(),
       });
       console.log("Actual Data:", actualData);
-
-      // Submit to blockchain
-      const blockchainResult = await submitHealthReport({
-        submittedBy: submittedBy?.name || userId,
-        email: email,
-        reportType: descriptionComponents.reportType,
-        location: {
-          country: location.country,
-          state: location.state,
-          district: location.district,
-          pincode: location.pincode || "",
-        },
-        actualData: actualData,
-      });
 
       // Save to local database with complete schema structure including images
       const outbreakRecord = await OUT.create({
@@ -280,7 +301,19 @@ router.post(
         tampered: false,
         images: imagePaths, // Add image paths to database
       });
-
+      // Submit to blockchain
+      const blockchainResult = await submitHealthReport({
+        submittedBy: submittedBy?.name || userId,
+        email: email,
+        reportType: descriptionComponents.reportType,
+        location: {
+          country: location.country,
+          state: location.state,
+          district: location.district,
+          pincode: location.pincode || "",
+        },
+        actualData: actualData,
+      });
       res.status(201).json({
         success: true,
         message:
@@ -322,7 +355,23 @@ router.post(
 // Submit outbreak report for non-authenticated users (no reward) - UPDATED WITH IMAGE UPLOAD
 router.post("/submit-public", upload.array("images", 5), async (req, res) => {
   try {
-    const { submittedBy, location, descriptionComponents, severity } = req.body;
+    // Parse JSON strings from FormData
+    let submittedBy, location, descriptionComponents, severity;
+    
+    try {
+      submittedBy = typeof req.body.submittedBy === 'string' ? JSON.parse(req.body.submittedBy) : req.body.submittedBy;
+      location = typeof req.body.location === 'string' ? JSON.parse(req.body.location) : req.body.location;
+      descriptionComponents = typeof req.body.descriptionComponents === 'string' ? JSON.parse(req.body.descriptionComponents) : req.body.descriptionComponents;
+      severity = req.body.severity;
+    } catch (parseError) {
+      console.error("Error parsing FormData JSON:", parseError);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid data format. Please check your form submission.",
+        error: parseError.message
+      });
+    }
+    
     const uploadedFiles = req.files || [];
 
     // Validate required fields
@@ -370,6 +419,15 @@ router.post("/submit-public", upload.array("images", 5), async (req, res) => {
 
     // Process uploaded images
     const imagePaths = uploadedFiles.map((file) => `/uploads/${file.filename}`);
+
+    // Debug logging
+    console.log("Parsed data from FormData:", {
+      submittedBy,
+      location,
+      descriptionComponents,
+      severity,
+      imageCount: uploadedFiles.length
+    });
 
     // Create the actual data string for hashing (blockchain data)
     const actualData = JSON.stringify({
@@ -467,97 +525,6 @@ router.post("/submit-public", upload.array("images", 5), async (req, res) => {
 });
 
 // Verify outbreak report (authenticated users only)
-router.patch(
-  "/verify/:reportId",
-  authMiddleware,
-  restrictRole(["ngo", "health_worker"]),
-  async (req, res) => {
-    try {
-      const { reportId } = req.params;
-      const userId = req.user._id;
-
-      // Find the local record first
-      const localRecord = await OUT.findById(reportId);
-      if (!localRecord) {
-        return res.status(404).json({
-          success: false,
-          message: "Report not found",
-        });
-      }
-
-      // Verify data integrity before verification
-      const verification = await verifyDataIntegrity(localRecord);
-
-      if (verification.tampered) {
-        await OUT.findByIdAndUpdate(reportId, { tampered: true });
-        return res.status(400).json({
-          success: false,
-          message:
-            "Cannot verify a potentially tampered report. Please investigate the data integrity first.",
-          verificationStatus: "POTENTIALLY_TAMPERED",
-        });
-      }
-
-      // Create data hash from the report data for blockchain verification
-      const actualData = JSON.stringify({
-        reportType: localRecord.descriptionComponents.reportType.toLowerCase(),
-        location: {
-          country: localRecord.location.country.toLowerCase(),
-          state: localRecord.location.state.toLowerCase(),
-          district: localRecord.location.district.toLowerCase(),
-          pincode: localRecord.location.pincode.toLowerCase() || "",
-        },
-        outbreakData: {
-          diseaseCategory:
-            localRecord.descriptionComponents.diseaseCategory.toLowerCase(),
-          suspectedCases: localRecord.descriptionComponents.suspectedCases,
-          severity: localRecord.severity.toLowerCase(),
-          basicInfo:
-            localRecord.descriptionComponents.basicInfo.toLowerCase() || "",
-          symptoms:
-            localRecord.descriptionComponents.symptoms.toLowerCase() || "",
-          additionalNotes:
-            localRecord.descriptionComponents.additionalNotes.toLowerCase() ||
-            "",
-        },
-        //   submittedAt: localRecord.createdAt.toISOString(),
-      });
-
-      const dataHash = createDataHash(actualData);
-      console.log(userId);
-      // Verify on blockchain
-      const verificationResult = await verifyHealthReport(
-        dataHash,
-        String(userId)
-      );
-      // Update local database
-      await OUT.findOneAndUpdate(
-        { _id: reportId }, // filter
-        { verifiedBy: userId }, // update
-        { new: true } // return the updated document if needed
-      );
-
-      res.status(200).json({
-        success: true,
-        message: "Report verified successfully",
-        data: {
-          ...verificationResult,
-          reportId: reportId,
-          verifiedBy: userId,
-          verificationStatus: "VERIFIED",
-        },
-      });
-    } catch (error) {
-      console.error("Error verifying report:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to verify report",
-        error: error.message,
-      });
-    }
-  }
-);
-//// Verify outbreak report (authenticated users only)
 router.patch(
   "/verify/:reportId",
   authMiddleware,
@@ -932,7 +899,7 @@ router.get("/pincode/:pincode", async (req, res) => {
 
     const filter = {
       "location.pincode": pincode,
-    //   isActive: isActive === "true",
+      //   isActive: isActive === "true",
     };
     if (severity) filter.severity = severity;
     if (diseaseCategory)
@@ -1002,7 +969,7 @@ router.get("/disease/:diseaseCategory", async (req, res) => {
 
     const filter = {
       "descriptionComponents.diseaseCategory": diseaseCategory.toLowerCase(),
-    //   isActive: isActive === "true",
+      //   isActive: isActive === "true",
     };
     if (severity) filter.severity = severity;
     if (reportType) filter["descriptionComponents.reportType"] = reportType;
@@ -1068,7 +1035,7 @@ router.get("/severity/:severity", async (req, res) => {
       skipVerification = "false",
     } = req.query;
 
-    const filter = { severity: severity, };
+    const filter = { severity: severity };
     if (diseaseCategory)
       filter["descriptionComponents.diseaseCategory"] = diseaseCategory;
     if (reportType) filter["descriptionComponents.reportType"] = reportType;
@@ -1138,7 +1105,7 @@ router.post("/search", async (req, res) => {
     } = req.body;
 
     // Build filter object
-    let filter = {  };
+    let filter = {};
 
     if (location) {
       if (location.country) filter["location.country"] = location.country;
