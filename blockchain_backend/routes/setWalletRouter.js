@@ -1,6 +1,6 @@
 const express = require("express");
 const DNT = require("../model/Donaters.js");
-const { setUserReward } = require("../contractService/contract.js");
+const { setUserReward } = require("../contractService/Token_contract.js");
 const { authMiddleware } = require("../middlewares/auth.js");
 
 const router = express.Router();

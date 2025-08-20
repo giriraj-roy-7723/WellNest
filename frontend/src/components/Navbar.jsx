@@ -14,6 +14,7 @@ export default function Navbar({ onLogout }) {
     { path: "/events", label: "Events", icon: <Calendar size={14} /> }, // ✅ Events added
     { path: "/blogs", label: "Blogs" },
     { path: "/payment", label: "Donate" },
+    { path: "/outbreak", label: "Outbreak" },
     { path: "/profile", label: "Profile" },
   ];
 
