@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Appointment from "../models/Appointment.js"; // Adjust path as needed
+import Appointment from "../models/Appointments.js"; // Adjust path as needed
 import { authRequired } from "../middlewares/auth.js";
 import { restrictRole } from "../middlewares/restrict.js";
 
@@ -8,7 +8,7 @@ const router = Router();
 router.use(authRequired);
 
 // Book a new appointment
-router.post("/appointment/book", async (req, res, next) => {
+router.post("/book", async (req, res, next) => {
   try {
     const { doctorId, patientId, requestedTime, reason } = req.body;
 
@@ -52,7 +52,7 @@ router.post("/appointment/book", async (req, res, next) => {
 });
 
 // Accept an appointment
-router.patch("/appointment/accept",restrictRole(["doctor"]), async (req, res, next) => {
+router.patch("/accept",restrictRole(["doctor"]), async (req, res, next) => {
   try {
     const { appointmentId, scheduledTime, notes } = req.body;
 
@@ -116,7 +116,7 @@ router.patch("/appointment/accept",restrictRole(["doctor"]), async (req, res, ne
 
 // Change appointment time
 router.patch(
-  "/appointment/change-time",
+  "/change-time",
   restrictRole(["doctor"]),
   async (req, res, next) => {
     try {

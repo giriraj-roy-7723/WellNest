@@ -85,4 +85,7 @@ app.use("/healthworker", healthworkerRoutes);
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import patientRoutes from "./routes/patient.routes.js";
 app.use("/patient", patientRoutes);
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+import appointmentRouter from "./routes/appointmentRouter.js";
+app.use("/appointment",appointmentRouter)

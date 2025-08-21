@@ -1,8 +1,51 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { aiApi } from "../utils/api";
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // AI Assistant state
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState([]); // [{role:"user"|"assistant", content:string}]
+  const [isSending, setIsSending] = useState(false);
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    if (location.hash === "#ai-assistant") {
+      const el = document.getElementById("ai-assistant");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages]);
+
+  const sendMessage = async () => {
+    const message = chatInput.trim();
+    if (!message || isSending) return;
+    setIsSending(true);
+    setChatMessages((prev) => [...prev, { role: "user", content: message }]);
+    setChatInput("");
+    try {
+      const { data } = await aiApi.post("/chat", { message });
+      const reply = data?.reply || "";
+      setChatMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+    } catch (err) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Sorry, I couldn't process that. Please try again." },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   return (
     <div className="landing-page">
@@ -64,6 +107,59 @@ export default function LandingPage() {
               <div className="feature-icon">📰</div>
               <h3>Health Education</h3>
               <p>Access informative blogs and articles from healthcare experts</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Assistant Section */}
+      <section className="ai-section" id="ai-assistant">
+        <div className="container">
+          <h2 className="section-title">AI Health Assistant</h2>
+          <p style={{ marginBottom: "12px" }}>
+            Ask health-related questions. If you're signed in, your conversation persists securely; otherwise, a guest session is used.
+          </p>
+          <div className="ai-chat" style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
+            <div className="ai-messages" style={{ flex: 1, minHeight: "220px", maxHeight: "360px", overflowY: "auto", border: "1px solid #eee", borderRadius: "8px", padding: "12px" }}>
+              {chatMessages.length === 0 ? (
+                <div style={{ color: "#666" }}>Start the conversation by asking a question…</div>
+              ) : (
+                chatMessages.map((m, idx) => (
+                  <div key={idx} style={{
+                    margin: "8px 0",
+                    display: "flex",
+                    justifyContent: m.role === "user" ? "flex-end" : "flex-start",
+                  }}>
+                    <div style={{
+                      background: m.role === "user" ? "#4f46e5" : "#f3f4f6",
+                      color: m.role === "user" ? "#fff" : "#111",
+                      padding: "8px 12px",
+                      borderRadius: "12px",
+                      maxWidth: "80%",
+                      whiteSpace: "pre-wrap",
+                    }}>
+                      {m.content}
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="ai-input" style={{ width: "320px", display: "flex", flexDirection: "column", gap: "8px" }}>
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type your question here…"
+                rows={5}
+                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={sendMessage}
+                disabled={isSending || !chatInput.trim()}
+              >
+                {isSending ? "Sending…" : "Ask"}
+              </button>
             </div>
           </div>
         </div>
