@@ -13,7 +13,12 @@ import LandingPage from "./pages/LandingPage";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
+
 import DoctorsPage from "./pages/DoctorsPage";
+import PendingAppointmentsPage from "./pages/PendingAppointmentsPage";
+import ScheduledAppointmentsPage from "./pages/ScheduledAppointmentsPage";
+import PatientAppointmentsPage from "./pages/PatientAppointmentsPage";
+
 import NGOsPage from "./pages/NGOsPage";
 import HealthWorkersPage from "./pages/HealthWorkersPage";
 import Payment from "./pages/payment";
@@ -30,6 +35,8 @@ import OrganizeEventForm from "./pages/events/OrganizeEventForm";
 import EventParticipantsPage from "./pages/events/EventParticipantsPage";
 import ParticipantRegistration from "./pages/events/ParticipantRegistration";
 
+import ChatPage from "./pages/ChatPage";
+
 import "./styles/main.css";
 
 function App() {
@@ -43,7 +50,25 @@ function App() {
               <Route path="/signup" element={<SignUp />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/dashboard" element={<Dashboard />} />
+
+              <Route path="/chats" element={<ChatPage />} />
+              <Route path="/chat/:appointmentId" element={<ChatPage />} />
+
               <Route path="/doctors" element={<DoctorsPage />} />
+              {/* Appointment Routes */}
+              <Route
+                path="/pending-appointments"
+                element={<PendingAppointmentsPage />}
+              />
+              <Route
+                path="/scheduled-appointments"
+                element={<ScheduledAppointmentsPage />}
+              />
+              <Route
+                path="/my-appointments"
+                element={<PatientAppointmentsPage />}
+              />
+
               <Route path="/ngos" element={<NGOsPage />} />
               <Route path="/healthworkers" element={<HealthWorkersPage />} />
               <Route path="/payment" element={<Payment />} />

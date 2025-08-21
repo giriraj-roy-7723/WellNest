@@ -9,6 +9,7 @@ router.use(authRequired);
 
 // Book a new appointment
 router.post("/book", async (req, res, next) => {
+    console.log("set is called")
   try {
     const { doctorId, patientId, requestedTime, reason } = req.body;
 
@@ -265,6 +266,63 @@ router.get("/get-patient-appointment", async (req, res, next) => {
         totalPages: Math.ceil(total / limit),
         totalAppointments: total,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add this route to your appointmentRouter.js file
+
+// Cancel an appointment
+router.patch("/cancel", async (req, res, next) => {
+  try {
+    const { appointmentId, reason } = req.body;
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment ID is required",
+      });
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    // Check if appointment can be cancelled
+    if (appointment.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment is already cancelled",
+      });
+    }
+
+    if (appointment.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot cancel completed appointment",
+      });
+    }
+
+    // Update appointment status
+    appointment.status = "cancelled";
+    if (reason) {
+      appointment.cancellationReason = reason;
+    }
+    appointment.cancelledAt = new Date();
+
+    await appointment.save();
+
+    res.json({
+      success: true,
+      message: "Appointment cancelled successfully",
+      data: appointment,
     });
   } catch (error) {
     next(error);
