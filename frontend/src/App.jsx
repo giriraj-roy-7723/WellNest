@@ -37,6 +37,8 @@ import ParticipantRegistration from "./pages/events/ParticipantRegistration";
 
 import ChatPage from "./pages/ChatPage";
 
+import AIChatPage from "./pages/AiChatPage";
+
 import "./styles/main.css";
 
 function App() {
@@ -75,6 +77,8 @@ function App() {
               <Route path="/outbreak" element={<OutbreakPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/blogs" element={<BlogsPage />} />
+
+              <Route path="/assistant" element={<AIChatPage />} />
 
               {/* Events Routes */}
               <Route path="/events" element={<EventsMainPage />} />
