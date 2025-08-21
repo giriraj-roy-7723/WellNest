@@ -16,7 +16,7 @@ export default function Navbar({ onLogout }) {
     { path: "/blogs", label: "Blogs" },
     { path: "/payment", label: "Donate" },
     { path: "/outbreak", label: "Outbreak" },
-    { path: "/#ai-assistant", label: "AI Assistant" },
+    { path: "/assistant", label: "AI Assistant" },
     { path: "/profile", label: "Profile" },
   ];
 
