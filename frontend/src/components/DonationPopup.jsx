@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, DollarSign, Gift, QrCode } from "lucide-react";
+import { X, DollarSign, Gift} from "lucide-react";
 import QRCode from "qrcode";
 import "../styles/event-styles/DonationPopup.css";
 

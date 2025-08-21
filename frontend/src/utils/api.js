@@ -19,8 +19,9 @@ const blockchainApi = axios.create({
 
 // AI Assistant API (FastAPI)
 // Uses withCredentials to allow guest cookie-based sessions when not signed in
+// Route through Vite proxy to avoid CORS in dev: "/ai" → target backend
 const aiApi = axios.create({
-  baseURL: import.meta.env.VITE_AI_API_BASE_URL || "http://localhost:7001",
+  baseURL: "/ai",
   headers: {
     "Content-Type": "application/json",
   },

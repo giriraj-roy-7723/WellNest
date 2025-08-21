@@ -19,6 +19,7 @@ import HealthWorkersPage from "./pages/HealthWorkersPage";
 import Payment from "./pages/payment";
 import ProfilePage from "./pages/ProfilePage";
 import BlogsPage from "./pages/BlogsPage";
+import AIChatPage from "./pages/AIChatPage";
 
 //outbreak components
 import OutbreakPage from "./pages/OutBreakPage";
@@ -50,6 +51,7 @@ function App() {
               <Route path="/outbreak" element={<OutbreakPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/blogs" element={<BlogsPage />} />
+              <Route path="/assistant" element={<AIChatPage />} />
 
               {/* Events Routes */}
               <Route path="/events" element={<EventsMainPage />} />
