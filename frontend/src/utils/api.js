@@ -17,6 +17,16 @@ const blockchainApi = axios.create({
   },
 });
 
+// AI Assistant API (FastAPI)
+// Uses withCredentials to allow guest cookie-based sessions when not signed in
+const aiApi = axios.create({
+  baseURL: import.meta.env.VITE_AI_API_BASE_URL || "http://localhost:7001",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
+});
+
 // Add auth token to main API requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
@@ -31,6 +41,20 @@ blockchainApi.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Add auth token to AI API requests (enables Mongo-backed memory when signed in)
+aiApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Ensure Authorization header is absent for guest sessions
+    if (config.headers && "Authorization" in config.headers) {
+      delete config.headers.Authorization;
+    }
   }
   return config;
 });
@@ -60,4 +84,4 @@ blockchainApi.interceptors.response.use(
 );
 
 export default api;
-export { blockchainApi };
+export { blockchainApi, aiApi };
