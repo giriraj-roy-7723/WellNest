@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import { createServer } from "http"; // 🆕 ADD THIS
+import { Server } from "socket.io"; // 🆕 ADD THIS
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
@@ -10,9 +12,20 @@ import { errorHandler } from "./middlewares/errorHandler.js";
 import mongoose from "mongoose";
 import { validationResult } from "express-validator";
 import dotenv from "dotenv";
+import { initializeSocket } from "./socket/socketHandler.js"; // 🆕 ADD THIS
 dotenv.config();
 
 const app = express();
+const server = createServer(app); // 🆕 ADD THIS - Create HTTP server
+
+// 🆕 ADD THIS - Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: false,
+  },
+});
 
 app.use(
   cors({
@@ -48,12 +61,40 @@ app.get("/health", (req, res) => res.json({ success: true, message: "OK" }));
 // Error handler
 app.use(errorHandler);
 
-// Start
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+import ngoRoutes from "./routes/ngo.routes.js";
+app.use("/ngo", ngoRoutes);
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+import doctorRoutes from "./routes/doctor.routes.js";
+app.use("/doctor", doctorRoutes);
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+import healthworkerRoutes from "./routes/healthworker.routes.js";
+app.use("/healthworker", healthworkerRoutes);
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+import patientRoutes from "./routes/patient.routes.js";
+app.use("/patient", patientRoutes);
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+import appointmentRouter from "./routes/appointmentRouter.js";
+app.use("/appointment", appointmentRouter);
+
+//🆕 ADD THIS - Chat routes
+import chatRoutes from "./routes/chat.routes.js";
+app.use("/chat", chatRoutes);
+
+// 🆕 ADD THIS - Initialize Socket.IO handlers
+initializeSocket(io);
+
+// Start - 🔄 CHANGE: Use 'server' instead of 'app'
 const PORT = process.env.PORT || 5000;
 connectDB(process.env.MONGODB_URI)
   .then(() =>
-    app.listen(PORT, () =>
-      console.log(` API running on http://localhost:${PORT}`)
+    server.listen(PORT, () =>
+      // 🔄 CHANGE: server.listen instead of app.listen
+      console.log(`API with WebSocket running on http://localhost:${PORT}`)
     )
   )
   .catch((e) => {
@@ -66,26 +107,3 @@ process.on("SIGINT", async () => {
   await mongoose.connection.close();
   process.exit(0);
 });
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-import ngoRoutes from "./routes/ngo.routes.js";
-
-app.use("/ngo", ngoRoutes);
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-import doctorRoutes from "./routes/doctor.routes.js";
-
-app.use("/doctor", doctorRoutes); // /doctor/profile
-// public routes already mounted as app.use("/", publicRoutes)
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-import healthworkerRoutes from "./routes/healthworker.routes.js";
-app.use("/healthworker", healthworkerRoutes);
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-import patientRoutes from "./routes/patient.routes.js";
-app.use("/patient", patientRoutes);
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-import appointmentRouter from "./routes/appointmentRouter.js";
-app.use("/appointment",appointmentRouter)

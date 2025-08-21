@@ -7,6 +7,7 @@ export default function Navbar({ onLogout }) {
   const location = useLocation();
 
   const navItems = [
+    { path: "/chats", label: "Chat" },
     { path: "/dashboard", label: "Dashboard" },
     { path: "/doctors", label: "Doctors" },
     { path: "/ngos", label: "NGOs" },
