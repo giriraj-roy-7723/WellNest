@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pymongo
+langgraph
+faiss-cpu
+tavily-python
+google-generativeai
+pydantic
+python-dotenv
