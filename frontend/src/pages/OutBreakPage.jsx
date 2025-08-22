@@ -7,12 +7,173 @@ import {
   XCircle,
   Eye,
   X,
+  Map,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import api, { blockchainApi } from "../utils/api.js";
 import { getToken, removeToken } from "../utils/auth.js";
 import "../styles/OutbreakDashboard.css";
+
+// Leaflet Map Component
+const LeafletMap = ({
+  center = [20.5937, 78.9629], // Center of India
+  zoom = 5,
+  onLocationSelect,
+  selectedLocation,
+  height = "300px",
+  interactive = true,
+}) => {
+  const [map, setMap] = useState(null);
+  const [marker, setMarker] = useState(null);
+  const mapRef = React.useRef(null);
+
+  useEffect(() => {
+    // Load Leaflet CSS and JS
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href =
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css";
+      document.head.appendChild(link);
+    }
+
+    const loadLeaflet = async () => {
+      if (window.L) {
+        initializeMap();
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js";
+      script.onload = initializeMap;
+      document.head.appendChild(script);
+    };
+
+    const initializeMap = () => {
+      if (mapRef.current && window.L && !map) {
+        const newMap = window.L.map(mapRef.current).setView(center, zoom);
+
+        window.L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          {
+            attribution: "© OpenStreetMap contributors",
+          }
+        ).addTo(newMap);
+
+        if (interactive && onLocationSelect) {
+          newMap.on("click", (e) => {
+            const { lat, lng } = e.latlng;
+
+            // Remove existing marker
+            if (marker) {
+              newMap.removeLayer(marker);
+            }
+
+            // Add new marker
+            const newMarker = window.L.marker([lat, lng]).addTo(newMap);
+            setMarker(newMarker);
+
+            // Reverse geocoding to get address
+            fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+            )
+              .then((response) => response.json())
+              .then((data) => {
+                const address = data.address || {};
+                const locationData = {
+                  latitude: lat,
+                  longitude: lng,
+                  address: data.display_name || "",
+                  state: address.state || "",
+                  district: address.state_district || address.county || "",
+                  pincode: address.postcode || "",
+                  country: address.country || "India",
+                };
+                onLocationSelect(locationData);
+              })
+              .catch((error) => {
+                console.error("Error in reverse geocoding:", error);
+                onLocationSelect({
+                  latitude: lat,
+                  longitude: lng,
+                  address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                  state: "",
+                  district: "",
+                  pincode: "",
+                  country: "India",
+                });
+              });
+          });
+        }
+
+        // If there's a selected location, show marker
+        if (
+          selectedLocation &&
+          selectedLocation.latitude &&
+          selectedLocation.longitude
+        ) {
+          const existingMarker = window.L.marker([
+            selectedLocation.latitude,
+            selectedLocation.longitude,
+          ]).addTo(newMap);
+          setMarker(existingMarker);
+          newMap.setView(
+            [selectedLocation.latitude, selectedLocation.longitude],
+            10
+          );
+        }
+
+        setMap(newMap);
+      }
+    };
+
+    loadLeaflet();
+
+    return () => {
+      if (map) {
+        map.remove();
+        setMap(null);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      map &&
+      selectedLocation &&
+      selectedLocation.latitude &&
+      selectedLocation.longitude
+    ) {
+      // Remove existing marker
+      if (marker) {
+        map.removeLayer(marker);
+      }
+
+      // Add new marker
+      const newMarker = window.L.marker([
+        selectedLocation.latitude,
+        selectedLocation.longitude,
+      ]).addTo(map);
+      setMarker(newMarker);
+      map.setView([selectedLocation.latitude, selectedLocation.longitude], 10);
+    }
+  }, [selectedLocation, map]);
+
+  return (
+    <div
+      ref={mapRef}
+      style={{
+        height,
+        width: "100%",
+        borderRadius: "8px",
+        border: "1px solid #ddd",
+      }}
+      className="leaflet-map"
+    />
+  );
+};
 
 // Constants
 const DISEASE_CATEGORIES = [
@@ -57,28 +218,38 @@ const outbreakApi = {
           state: formData.get("location[state]"),
           district: formData.get("location[district]"),
           pincode: formData.get("location[pincode]") || "",
-          googleMapsLink: formData.get("location[googleMapsLink]") || "",
+          address: formData.get("location[address]") || "",
+          latitude: parseFloat(formData.get("location[latitude]")) || null,
+          longitude: parseFloat(formData.get("location[longitude]")) || null,
         },
         descriptionComponents: {
           reportType: formData.get("descriptionComponents[reportType]"),
-          diseaseCategory: formData.get("descriptionComponents[diseaseCategory]"),
-          suspectedCases: parseInt(formData.get("descriptionComponents[suspectedCases]")),
+          diseaseCategory: formData.get(
+            "descriptionComponents[diseaseCategory]"
+          ),
+          suspectedCases: parseInt(
+            formData.get("descriptionComponents[suspectedCases]")
+          ),
           basicInfo: formData.get("descriptionComponents[basicInfo]") || "",
           symptoms: formData.get("descriptionComponents[symptoms]") || "",
-          additionalNotes: formData.get("descriptionComponents[additionalNotes]") || "",
+          additionalNotes:
+            formData.get("descriptionComponents[additionalNotes]") || "",
         },
         severity: formData.get("severity"),
       };
 
       // Create a new FormData with the correct structure
       const newFormData = new FormData();
-      
+
       // Add the structured data as JSON
       newFormData.append("submittedBy", JSON.stringify(reportData.submittedBy));
       newFormData.append("location", JSON.stringify(reportData.location));
-      newFormData.append("descriptionComponents", JSON.stringify(reportData.descriptionComponents));
+      newFormData.append(
+        "descriptionComponents",
+        JSON.stringify(reportData.descriptionComponents)
+      );
       newFormData.append("severity", reportData.severity);
-      
+
       // Add images
       for (let i = 0; i < formData.getAll("images").length; i++) {
         newFormData.append("images", formData.getAll("images")[i]);
@@ -174,21 +345,24 @@ const getRoleDisplayName = (role) => {
 };
 
 // Report Card Component
-const ReportCard = ({ 
-  report, 
-  userRole, 
-  onVerify, 
-  onToggleStatus, 
-  isAuthenticated 
+const ReportCard = ({
+  report,
+  userRole,
+  onVerify,
+  onToggleStatus,
+  isAuthenticated,
 }) => {
-  const canManageReports = (userRole === "ngo" || userRole === "health_worker") && isAuthenticated;
+  const canManageReports =
+    (userRole === "ngo" || userRole === "health_worker") && isAuthenticated;
 
   return (
     <div className="report-card">
       <div className="report-header">
         <div className="report-info">
           <div className="report-badges">
-            <span className={`severity-badge ${getSeverityColor(report.severity)}`}>
+            <span
+              className={`severity-badge ${getSeverityColor(report.severity)}`}
+            >
               {report.severity.toUpperCase()}
             </span>
             {!report.isActive && (
@@ -201,11 +375,13 @@ const ReportCard = ({
             </span>
           </div>
           <h3 className="report-title">
-            {report.descriptionComponents.diseaseCategory.replace("_", " ")} Outbreak
+            {report.descriptionComponents.diseaseCategory.replace("_", " ")}{" "}
+            Outbreak
           </h3>
           <div className="report-location">
             <MapPin className="location-icon" />
-            {report.location.district}, {report.location.state}, {report.location.country}
+            {report.location.district}, {report.location.state},{" "}
+            {report.location.country}
           </div>
           <div className="report-date">
             <Calendar className="date-icon" />
@@ -227,7 +403,9 @@ const ReportCard = ({
             )}
             <button
               onClick={() => onToggleStatus(report.id)}
-              className={`toggle-btn ${report.isActive ? "deactivate" : "activate"}`}
+              className={`toggle-btn ${
+                report.isActive ? "deactivate" : "activate"
+              }`}
             >
               {report.isActive ? (
                 <XCircle className="btn-icon" />
@@ -249,11 +427,32 @@ const ReportCard = ({
         </div>
         <div>
           <p className="detail-label">Reported By</p>
-          <p className="detail-value">
-            {report.submittedBy.name}
-          </p>
+          <p className="detail-value">{report.submittedBy.name}</p>
         </div>
       </div>
+
+      {/* Location Map Display */}
+      {report.location.latitude && report.location.longitude && (
+        <div className="map-section">
+          <p className="section-label">
+            <Map className="section-icon" />
+            Location
+          </p>
+          <LeafletMap
+            center={[report.location.latitude, report.location.longitude]}
+            zoom={12}
+            selectedLocation={{
+              latitude: report.location.latitude,
+              longitude: report.location.longitude,
+            }}
+            interactive={false}
+            height="200px"
+          />
+          {report.location.address && (
+            <p className="address-text">{report.location.address}</p>
+          )}
+        </div>
+      )}
 
       {report.descriptionComponents.symptoms && (
         <div className="symptoms-section">
@@ -291,16 +490,44 @@ const ReportCard = ({
 };
 
 // Submit Report Form Component
-const SubmitReportForm = ({ 
-  showForm, 
-  setShowForm, 
-  formData, 
-  setFormData, 
-  selectedImages, 
-  setSelectedImages, 
-  onSubmit, 
-  loading 
+const SubmitReportForm = ({
+  showForm,
+  setShowForm,
+  formData,
+  setFormData,
+  selectedImages,
+  setSelectedImages,
+  onSubmit,
+  loading,
 }) => {
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [showLocationSelector, setShowLocationSelector] = useState(false);
+
+  useEffect(() => {
+    if (formData.location.latitude && formData.location.longitude) {
+      setSelectedLocation({
+        latitude: formData.location.latitude,
+        longitude: formData.longitude,
+      });
+    }
+  }, [formData.location]);
+
+  const handleLocationSelect = (locationData) => {
+    setSelectedLocation(locationData);
+    setFormData({
+      ...formData,
+      location: {
+        ...formData.location,
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        address: locationData.address,
+        state: locationData.state || formData.location.state,
+        district: locationData.district || formData.location.district,
+        pincode: locationData.pincode || formData.location.pincode,
+      },
+    });
+  };
+
   if (!showForm) return null;
 
   return (
@@ -370,7 +597,45 @@ const SubmitReportForm = ({
 
           {/* Location Information */}
           <div className="form-section">
-            <h3 className="section-title">Location Information</h3>
+            <h3 className="section-title">
+              <Map className="section-icon" />
+              Location Information
+            </h3>
+
+            {/* Location Selector Toggle */}
+            <div className="location-selector-header">
+              <button
+                type="button"
+                onClick={() => setShowLocationSelector(!showLocationSelector)}
+                className="location-toggle-btn"
+              >
+                <MapPin className="btn-icon" />
+                {showLocationSelector ? "Hide Map" : "Select Location on Map"}
+              </button>
+              {selectedLocation && (
+                <span className="location-selected-indicator">
+                  Location Selected: {selectedLocation.latitude?.toFixed(4)},{" "}
+                  {selectedLocation.longitude?.toFixed(4)}
+                </span>
+              )}
+            </div>
+
+            {/* Interactive Map */}
+            {showLocationSelector && (
+              <div className="map-container">
+                <p className="map-instruction">
+                  Click on the map to select the outbreak location
+                </p>
+                <LeafletMap
+                  onLocationSelect={handleLocationSelect}
+                  selectedLocation={selectedLocation}
+                  height="400px"
+                  interactive={true}
+                />
+              </div>
+            )}
+
+            {/* Manual Location Inputs */}
             <div className="form-grid-4">
               <input
                 type="text"
@@ -420,17 +685,16 @@ const SubmitReportForm = ({
                 }
               />
               <input
-                type="url"
-                placeholder="Google Maps Link"
-                required
+                type="text"
+                placeholder="Full Address"
                 className="form-input"
-                value={formData.location.googleMapsLink}
+                value={formData.location.address}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
                     location: {
                       ...formData.location,
-                      googleMapsLink: e.target.value,
+                      address: e.target.value,
                     },
                   })
                 }
@@ -480,10 +744,7 @@ const SubmitReportForm = ({
                 <option value="">Select Disease Category</option>
                 {DISEASE_CATEGORIES.map((category) => (
                   <option key={category} value={category}>
-                    {category
-                      .replace("_", " ")
-                      .charAt(0)
-                      .toUpperCase() +
+                    {category.replace("_", " ").charAt(0).toUpperCase() +
                       category.replace("_", " ").slice(1)}
                   </option>
                 ))}
@@ -577,9 +838,7 @@ const SubmitReportForm = ({
               type="file"
               multiple
               accept="image/*"
-              onChange={(e) =>
-                setSelectedImages(Array.from(e.target.files))
-              }
+              onChange={(e) => setSelectedImages(Array.from(e.target.files))}
               className="file-input"
             />
             {selectedImages.length > 0 && (
@@ -631,7 +890,9 @@ const OutbreakDashboard = () => {
       state: "",
       district: "",
       pincode: "",
-      googleMapsLink: "",
+      address: "",
+      latitude: null,
+      longitude: null,
     },
     descriptionComponents: {
       reportType: "outbreak",
@@ -661,13 +922,16 @@ const OutbreakDashboard = () => {
     try {
       const userData = await userApi.getCurrentUser();
       console.log("User data received:", userData); // Debug log
-      
+
       if (userData.success && userData.data && userData.data.user) {
         const user = userData.data.user;
         setCurrentUser(user);
-        
+
         // Set user role based on the user's role from backend
-        if (user.role && ["ngo", "health_worker", "doctor", "patient"].includes(user.role)) {
+        if (
+          user.role &&
+          ["ngo", "health_worker", "doctor", "patient"].includes(user.role)
+        ) {
           setUserRole(user.role);
           console.log("User role set to:", user.role); // Debug log
         } else {
@@ -730,6 +994,11 @@ const OutbreakDashboard = () => {
       return;
     }
 
+    if (!formData.location.latitude || !formData.location.longitude) {
+      alert("Please select a location on the map or provide coordinates.");
+      return;
+    }
+
     setLoading(true);
 
     const formDataToSend = new FormData();
@@ -738,22 +1007,45 @@ const OutbreakDashboard = () => {
     // submittedBy fields
     formDataToSend.append("submittedBy[name]", formData.submittedBy.name);
     formDataToSend.append("submittedBy[email]", formData.submittedBy.email);
-    formDataToSend.append("submittedBy[phoneNumber]", formData.submittedBy.phoneNumber || "");
+    formDataToSend.append(
+      "submittedBy[phoneNumber]",
+      formData.submittedBy.phoneNumber || ""
+    );
 
     // location fields
     formDataToSend.append("location[country]", formData.location.country);
     formDataToSend.append("location[state]", formData.location.state);
     formDataToSend.append("location[district]", formData.location.district);
     formDataToSend.append("location[pincode]", formData.location.pincode || "");
-    formDataToSend.append("location[googleMapsLink]", formData.location.googleMapsLink || "");
+    formDataToSend.append("location[address]", formData.location.address || "");
+    formDataToSend.append("location[latitude]", formData.location.latitude);
+    formDataToSend.append("location[longitude]", formData.location.longitude);
 
     // descriptionComponents fields
-    formDataToSend.append("descriptionComponents[reportType]", formData.descriptionComponents.reportType);
-    formDataToSend.append("descriptionComponents[diseaseCategory]", formData.descriptionComponents.diseaseCategory);
-    formDataToSend.append("descriptionComponents[suspectedCases]", formData.descriptionComponents.suspectedCases);
-    formDataToSend.append("descriptionComponents[basicInfo]", formData.descriptionComponents.basicInfo || "");
-    formDataToSend.append("descriptionComponents[symptoms]", formData.descriptionComponents.symptoms || "");
-    formDataToSend.append("descriptionComponents[additionalNotes]", formData.descriptionComponents.additionalNotes || "");
+    formDataToSend.append(
+      "descriptionComponents[reportType]",
+      formData.descriptionComponents.reportType
+    );
+    formDataToSend.append(
+      "descriptionComponents[diseaseCategory]",
+      formData.descriptionComponents.diseaseCategory
+    );
+    formDataToSend.append(
+      "descriptionComponents[suspectedCases]",
+      formData.descriptionComponents.suspectedCases
+    );
+    formDataToSend.append(
+      "descriptionComponents[basicInfo]",
+      formData.descriptionComponents.basicInfo || ""
+    );
+    formDataToSend.append(
+      "descriptionComponents[symptoms]",
+      formData.descriptionComponents.symptoms || ""
+    );
+    formDataToSend.append(
+      "descriptionComponents[additionalNotes]",
+      formData.descriptionComponents.additionalNotes || ""
+    );
 
     // severity
     formDataToSend.append("severity", formData.severity);
@@ -788,7 +1080,11 @@ const OutbreakDashboard = () => {
   const resetForm = () => {
     setFormData({
       submittedBy: {
-        name: currentUser ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || "" : "",
+        name: currentUser
+          ? `${currentUser.firstName || ""} ${
+              currentUser.lastName || ""
+            }`.trim() || ""
+          : "",
         email: currentUser?.email || "",
         phoneNumber: currentUser?.phone || "",
       },
@@ -797,7 +1093,9 @@ const OutbreakDashboard = () => {
         state: "",
         district: "",
         pincode: "",
-        googleMapsLink: "",
+        address: "",
+        latitude: null,
+        longitude: null,
       },
       descriptionComponents: {
         reportType: "outbreak",
@@ -900,7 +1198,8 @@ const OutbreakDashboard = () => {
                   </span>
                   {currentUser && (
                     <span className="user-name">
-                      Welcome, {currentUser.firstName || currentUser.name || "User"}
+                      Welcome,{" "}
+                      {currentUser.firstName || currentUser.name || "User"}
                     </span>
                   )}
                 </div>
