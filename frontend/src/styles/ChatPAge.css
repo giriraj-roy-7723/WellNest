@@ -362,12 +362,14 @@
     color: #6b7280;
 }
 
-/* Messages Container Styles */
+/* Messages Container Styles - MAXIMUM SPACING */
 .messages-container {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
-    gap: 1rem;
+    padding: 3rem 4rem;
+    /* Significantly increased padding */
+    gap: 2.5rem;
+    /* Much larger gap between messages */
     background-color: #f9fafb;
     display: flex;
     flex-direction: column;
@@ -396,7 +398,8 @@
 
 .message-wrapper {
     display: flex;
-    margin-bottom: 1rem;
+    margin-bottom: 2.5rem;
+    /* Much larger margin between messages */
 }
 
 .message-wrapper.own-message {
@@ -407,10 +410,16 @@
     justify-content: flex-start;
 }
 
+/* Message Bubble Styles - MAXIMUM SPACING AND SIZE */
 .message-bubble {
-    max-width: 24rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
+    max-width: 45rem;
+    /* Greatly increased from 32rem */
+    padding: 2rem 2.5rem;
+    /* Much larger padding */
+    border-radius: 1rem;
+    /* Larger border radius */
+    line-height: 1.8;
+    /* Increased line height for more text spacing */
 }
 
 .message-bubble.own {
@@ -426,13 +435,20 @@
 }
 
 .message-text {
-    font-size: 0.875rem;
+    font-size: 1.125rem;
+    /* Increased from 1rem */
     white-space: pre-wrap;
+    line-height: 1.8;
+    /* Increased line height */
+    letter-spacing: 0.01em;
+    /* Added letter spacing for readability */
 }
 
 .message-timestamp {
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
+    font-size: 0.9rem;
+    /* Increased from 0.8rem */
+    margin-top: 0.75rem;
+    /* Increased from 0.5rem */
 }
 
 .message-bubble.own .message-timestamp {
@@ -451,8 +467,9 @@
 
 .typing-indicator {
     background-color: white;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    /* Increased padding */
+    border-radius: 0.75rem;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
     border: 1px solid #e5e7eb;
 }
@@ -492,31 +509,45 @@
 }
 
 .typing-text {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+    /* Slightly increased */
     color: #6b7280;
-    margin-top: 0.25rem;
+    margin-top: 0.5rem;
+    /* Increased spacing */
 }
 
-/* Message Input Styles */
+/* Message Input Styles - MAXIMUM SPACING */
 .message-input-container {
-    padding: 1rem;
+    padding: 2.5rem 3rem;
+    /* Much larger padding */
     border-top: 1px solid #e5e7eb;
     background-color: white;
 }
 
 .message-input-wrapper {
     display: flex;
-    gap: 0.5rem;
+    gap: 1.25rem;
+    /* Increased gap */
 }
 
 .message-input {
     flex: 1;
-    padding: 0.5rem 0.75rem;
+    padding: 1.5rem 2rem;
+    /* Much larger padding */
     border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
+    border-radius: 1rem;
+    /* Larger border radius */
     outline: none;
     resize: none;
     transition: border-color 0.2s;
+    font-size: 1.125rem;
+    /* Increased font size */
+    line-height: 1.7;
+    /* Increased line height */
+    min-height: 4rem;
+    /* Increased minimum height */
+    letter-spacing: 0.01em;
+    /* Added letter spacing */
 }
 
 .message-input:focus {
@@ -529,13 +560,21 @@
 }
 
 .send-button {
-    padding: 0.5rem 1.5rem;
+    padding: 1.5rem 2.5rem;
+    /* Much larger padding */
     background-color: #3b82f6;
     color: white;
     border: none;
-    border-radius: 0.5rem;
+    border-radius: 1rem;
+    /* Larger border radius */
     cursor: pointer;
     transition: background-color 0.2s;
+    font-size: 1.125rem;
+    /* Increased font size */
+    min-height: 4rem;
+    /* Match input height */
+    font-weight: 500;
+    /* Added font weight */
 }
 
 .send-button:hover:not(:disabled) {
@@ -548,9 +587,11 @@
 }
 
 .input-helper-text {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+    /* Slightly increased */
     color: #6b7280;
-    margin-top: 0.25rem;
+    margin-top: 0.5rem;
+    /* Increased spacing */
 }
 
 /* No Chat Selected Styles */
@@ -594,7 +635,7 @@
     color: #6b7280;
 }
 
-/* Responsive Design */
+/* Responsive Design - UPDATED FOR LARGER TEXT AREAS */
 @media (max-width: 768px) {
     .chat-container {
         flex-direction: column;
@@ -614,7 +655,33 @@
     }
 
     .message-bubble {
-        max-width: 18rem;
+        max-width: 32rem;
+        /* Still very spacious for tablet */
+        padding: 1.75rem 2rem;
+        /* Large padding for tablet */
+    }
+
+    .messages-container {
+        padding: 2.5rem 2rem;
+        /* Large padding for tablet */
+    }
+
+    .message-input-container {
+        padding: 2rem 1.5rem;
+        /* Large padding for tablet */
+    }
+
+    .message-input {
+        padding: 1.25rem 1.5rem;
+        /* Large padding for tablet */
+        min-height: 3.5rem;
+        font-size: 1.075rem;
+    }
+
+    .send-button {
+        padding: 1.25rem 2rem;
+        min-height: 3.5rem;
+        font-size: 1.075rem;
     }
 }
 
@@ -632,18 +699,37 @@
     }
 
     .message-bubble {
-        max-width: 15rem;
+        max-width: 28rem;
+        /* Very spacious even on small screens */
+        padding: 1.5rem 1.75rem;
+        /* Large padding for small screens */
     }
 
     .chat-header {
-        padding: 0.75rem;
+        padding: 1rem;
+        /* Increased */
     }
 
     .messages-container {
-        padding: 0.75rem;
+        padding: 2rem 1.5rem;
+        /* Large padding for small screens */
     }
 
     .message-input-container {
-        padding: 0.75rem;
+        padding: 1.75rem 1.25rem;
+        /* Large padding */
+    }
+
+    .message-input {
+        padding: 1.125rem 1.375rem;
+        /* Large padding for small screens */
+        min-height: 3.25rem;
+        font-size: 1.05rem;
+    }
+
+    .send-button {
+        padding: 1.125rem 1.75rem;
+        min-height: 3.25rem;
+        font-size: 1.05rem;
     }
 }
