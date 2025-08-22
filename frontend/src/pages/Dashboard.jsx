@@ -59,7 +59,7 @@ export default function Dashboard() {
         <div className="section-content">
           <div className="welcome-section">
             <div className="welcome-card">
-              <div className="welcome-icon">👋</div>
+              {/* <div className="welcome-icon"></div> */}
               <h2>Hello, {user?.firstName}!</h2>
               <p>Welcome to your WellNest dashboard. Access healthcare services and manage your profile.</p>
               <div className="user-role">
