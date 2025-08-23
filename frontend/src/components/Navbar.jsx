@@ -25,6 +25,7 @@ export default function Navbar({ onLogout }) {
     { path: "/blogs", label: "Blogs" },
     { path: "/outbreak", label: "Outbreak" },
     { path: "/assistant", label: "AI Assistant" },
+    { path: "/video-call", label: "call" },
   ];
 
   // Dropdown menu items

@@ -490,3 +490,63 @@
         width: 100%;
     }
 }
+/* Add this to your AppointmentsPage.css file */
+
+.video-call-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.video-call-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+.video-call-btn:active {
+    transform: translateY(0);
+}
+
+.video-call-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Additional styles for appointment cards */
+.appointment-card-large {
+    position: relative;
+}
+
+.appointment-card-large .video-call-btn {
+    margin-left: auto;
+}
+
+/* Status indicators for past appointments */
+.past-time {
+    color: #9CA3AF;
+    font-style: italic;
+}
+
+.future-time {
+    color: #059669;
+    font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .appointment-actions-large {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .video-call-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}

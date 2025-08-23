@@ -2,8 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import { createServer } from "http"; // 🆕 ADD THIS
-import { Server } from "socket.io"; // 🆕 ADD THIS
+import { createServer } from "http"; // ✅ WebRTC: HTTP server for Socket.IO
+import { Server } from "socket.io"; // ✅ WebRTC: Socket.IO for signaling
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
@@ -12,25 +12,25 @@ import { errorHandler } from "./middlewares/errorHandler.js";
 import mongoose from "mongoose";
 import { validationResult } from "express-validator";
 import dotenv from "dotenv";
-import { initializeSocket } from "./socket/socketHandler.js"; // 🆕 ADD THIS
+import { initializeWebRTCSocket } from "./socket/webrtcHandler.js"; // ✅ WebRTC: Socket handler
 dotenv.config();
 
 const app = express();
-const server = createServer(app); // 🆕 ADD THIS - Create HTTP server
+const server = createServer(app); // ✅ WebRTC: Create HTTP server
 
-// 🆕 ADD THIS - Initialize Socket.IO
+// ✅ WebRTC: Initialize Socket.IO with proper CORS
 const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
     methods: ["GET", "POST"],
-    credentials: false,
+    credentials: true,
   },
 });
 
 app.use(
   cors({
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
-    credentials: false,
+    credentials: true, // Changed to true for WebRTC
   })
 );
 
@@ -61,40 +61,35 @@ app.get("/health", (req, res) => res.json({ success: true, message: "OK" }));
 // Error handler
 app.use(errorHandler);
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Existing routes
 import ngoRoutes from "./routes/ngo.routes.js";
 app.use("/ngo", ngoRoutes);
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import doctorRoutes from "./routes/doctor.routes.js";
 app.use("/doctor", doctorRoutes);
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import healthworkerRoutes from "./routes/healthworker.routes.js";
 app.use("/healthworker", healthworkerRoutes);
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import patientRoutes from "./routes/patient.routes.js";
 app.use("/patient", patientRoutes);
 
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 import appointmentRouter from "./routes/appointmentRouter.js";
 app.use("/appointment", appointmentRouter);
 
-//🆕 ADD THIS - Chat routes
-import chatRoutes from "./routes/chat.routes.js";
-app.use("/chat", chatRoutes);
+// ✅ WebRTC: Add video call routes
+import videoCallRoutes from "./routes/videoCall.routes.js";
+app.use("/video-call", videoCallRoutes);
 
-// 🆕 ADD THIS - Initialize Socket.IO handlers
-initializeSocket(io);
+// ✅ WebRTC: Initialize Socket.IO handlers for WebRTC signaling
+initializeWebRTCSocket(io);
 
-// Start - 🔄 CHANGE: Use 'server' instead of 'app'
+// Start server - Use 'server' instead of 'app' for Socket.IO support
 const PORT = process.env.PORT || 5000;
 connectDB(process.env.MONGODB_URI)
   .then(() =>
     server.listen(PORT, () =>
-      // 🔄 CHANGE: server.listen instead of app.listen
-      console.log(`API with WebSocket running on http://localhost:${PORT}`)
+      console.log(`API with WebRTC support running on http://localhost:${PORT}`)
     )
   )
   .catch((e) => {
