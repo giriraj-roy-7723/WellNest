@@ -133,6 +133,24 @@ export default function ScheduledAppointmentsPage() {
     }
   };
 
+  const handleStartVideoCall = (appointment) => {
+    // Set appointment context for video call
+    localStorage.setItem(
+      "currentAppointment",
+      JSON.stringify({
+        appointmentId: appointment._id,
+        doctorId: appointment.doctorId?._id || currentUser._id,
+        patientId: appointment.patientId?._id || appointment.patientId,
+        doctorName: currentUser.name || "Doctor",
+        patientName: appointment.patientId?.name || "Patient",
+        userRole: "doctor",
+      })
+    );
+
+    // Navigate to video call page
+    navigate("/video-call");
+  };
+
   const filterAppointments = (appointments) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -290,6 +308,10 @@ export default function ScheduledAppointmentsPage() {
                   appointment.scheduledTime || appointment.requestedTime
                 );
                 const isPast = appointmentTime < new Date();
+                const canVideoCall =
+                  (appointment.status === "scheduled" ||
+                    appointment.status === "accepted") &&
+                  !isPast;
 
                 return (
                   <div key={appointment._id} className="appointment-card-large">
@@ -365,40 +387,14 @@ export default function ScheduledAppointmentsPage() {
                           </button>
                         </>
                       )}
-                      <button
-                        className="btn btn-primary"
-                        onClick={() =>
-                          window.open(`mailto:${appointment.patientId?.email}`)
-                        }
-                        disabled={!appointment.patientId?.email}
-                      >
-                        Email Patient
-                      </button>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() =>
-                          window.open(`tel:${appointment.patientId?.phone}`)
-                        }
-                        disabled={!appointment.patientId?.phone}
-                      >
-                        Call Patient
-                      </button>
-                      <button 
-                        className="btn btn-primary" 
-                        onClick={() => {
-                          // Store appointment data in localStorage for chat to access
-                          localStorage.setItem('currentAppointment', JSON.stringify({
-                            appointmentId: appointment._id,
-                            doctorId: appointment.doctorId?._id || appointment.doctorId,
-                            patientId: appointment.patientId?._id || appointment.patientId,
-                            doctorName: appointment.doctorId?.name || "Doctor",
-                            patientName: appointment.patientId?.name || "Patient"
-                          }));
-                          navigate(`/chat/${appointment._id}`);
-                        }}
-                      >
-                        💬 Chat with Patient
-                      </button>
+                      {canVideoCall && (
+                        <button
+                          className="btn btn-primary video-call-btn"
+                          onClick={() => handleStartVideoCall(appointment)}
+                        >
+                          📹 Start Video Call
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

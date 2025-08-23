@@ -44,7 +44,9 @@ export default function PatientAppointmentsPage() {
       const query = new URLSearchParams();
       query.set("patientId", patientProfile._id);
       if (filter !== "all") query.set("status", filter);
-      const response = await api.get(`/appointment/get-patient-appointment?${query.toString()}`);
+      const response = await api.get(
+        `/appointment/get-patient-appointment?${query.toString()}`
+      );
       const data = response?.data?.data || [];
       setAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -69,6 +71,28 @@ export default function PatientAppointmentsPage() {
     }
   };
 
+  const handleJoinVideoCall = (appointment) => {
+    // Set appointment context for video call
+    localStorage.setItem(
+      "currentAppointment",
+      JSON.stringify({
+        appointmentId: appointment._id,
+        doctorId: appointment.doctorId?._id || appointment.doctorId,
+        patientId: appointment.patientId?._id || patientProfile._id,
+        doctorName:
+          appointment.doctorId?.name ||
+          `${appointment.doctorId?.user?.firstName || "Doctor"} ${
+            appointment.doctorId?.user?.lastName || ""
+          }`,
+        patientName: patientProfile.name || "Patient",
+        userRole: "patient",
+      })
+    );
+
+    // Navigate to video call page
+    navigate("/video-call");
+  };
+
   const statuses = [
     { key: "all", label: "All" },
     { key: "pending", label: "Pending" },
@@ -85,7 +109,12 @@ export default function PatientAppointmentsPage() {
   if (loading) {
     return (
       <div className="page">
-        <Navbar onLogout={() => { localStorage.removeItem("token"); navigate("/signin"); }} />
+        <Navbar
+          onLogout={() => {
+            localStorage.removeItem("token");
+            navigate("/signin");
+          }}
+        />
         <div className="page-content">
           <div className="section-header">
             <h1 className="section-title">My Appointments</h1>
@@ -103,7 +132,12 @@ export default function PatientAppointmentsPage() {
   if (error) {
     return (
       <div className="page">
-        <Navbar onLogout={() => { localStorage.removeItem("token"); navigate("/signin"); }} />
+        <Navbar
+          onLogout={() => {
+            localStorage.removeItem("token");
+            navigate("/signin");
+          }}
+        />
         <div className="page-content">
           <div className="section-header">
             <h1 className="section-title">My Appointments</h1>
@@ -111,7 +145,10 @@ export default function PatientAppointmentsPage() {
           </div>
           <div className="section-content">
             <div className="error-message">{error}</div>
-            <button className="btn btn-outline" onClick={() => navigate("/doctors")}>
+            <button
+              className="btn btn-outline"
+              onClick={() => navigate("/doctors")}
+            >
               ← Back to Doctors
             </button>
           </div>
@@ -122,19 +159,33 @@ export default function PatientAppointmentsPage() {
 
   return (
     <div className="page">
-      <Navbar onLogout={() => { localStorage.removeItem("token"); navigate("/signin"); }} />
+      <Navbar
+        onLogout={() => {
+          localStorage.removeItem("token");
+          navigate("/signin");
+        }}
+      />
       <div className="page-content">
         <div className="section-header">
           <h1 className="section-title">My Appointments</h1>
-          <p className="section-subtitle">Track pending, accepted, scheduled and cancelled</p>
-          <button className="btn btn-outline" onClick={() => navigate("/doctors")}>← Back to Doctors</button>
+          <p className="section-subtitle">
+            Track pending, accepted, scheduled and cancelled
+          </p>
+          <button
+            className="btn btn-outline"
+            onClick={() => navigate("/doctors")}
+          >
+            ← Back to Doctors
+          </button>
         </div>
 
         <div className="appointment-filters">
           {statuses.map((s) => (
             <button
               key={s.key}
-              className={`btn btn-small ${filter === s.key ? "btn-primary" : "btn-outline"}`}
+              className={`btn btn-small ${
+                filter === s.key ? "btn-primary" : "btn-outline"
+              }`}
               onClick={() => setFilter(s.key)}
             >
               {s.label}
@@ -146,60 +197,82 @@ export default function PatientAppointmentsPage() {
           {appointments.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📅</div>
-              <h3>No {filter === "all" ? "appointments" : `${filter} appointments`}</h3>
+              <h3>
+                No{" "}
+                {filter === "all" ? "appointments" : `${filter} appointments`}
+              </h3>
               <p>New bookings will appear here.</p>
             </div>
           ) : (
             <div className="appointments-grid">
-              {appointments.map((a) => (
-                <div key={a._id} className="appointment-card-large">
-                  <div className="appointment-header">
-                    <h3>{a.doctorId?.name || `${a.doctorId?.user?.firstName || "Doctor"} ${a.doctorId?.user?.lastName || ""}`}</h3>
-                    <span className={`status-badge status-${a.status}`}>{a.status}</span>
-                  </div>
-                  <div className="appointment-details">
-                    <div className="detail-row">
-                      <strong>{a.scheduledTime ? "Scheduled Time:" : "Requested Time:"}</strong>
-                      <span>{new Date(a.scheduledTime || a.requestedTime).toLocaleString()}</span>
+              {appointments.map((a) => {
+                const appointmentTime = new Date(
+                  a.scheduledTime || a.requestedTime
+                );
+                const isPast = appointmentTime < new Date();
+                const canVideoCall =
+                  (a.status === "scheduled" || a.status === "accepted") &&
+                  !isPast;
+
+                return (
+                  <div key={a._id} className="appointment-card-large">
+                    <div className="appointment-header">
+                      <h3>
+                        {a.doctorId?.name ||
+                          `${a.doctorId?.user?.firstName || "Doctor"} ${
+                            a.doctorId?.user?.lastName || ""
+                          }`}
+                      </h3>
+                      <span className={`status-badge status-${a.status}`}>
+                        {a.status}
+                      </span>
                     </div>
-                    {a.reason && (
+                    <div className="appointment-details">
                       <div className="detail-row">
-                        <strong>Reason:</strong>
-                        <span>{a.reason}</span>
+                        <strong>
+                          {a.scheduledTime
+                            ? "Scheduled Time:"
+                            : "Requested Time:"}
+                        </strong>
+                        <span className={isPast ? "past-time" : "future-time"}>
+                          {appointmentTime.toLocaleString()}
+                          {isPast && " (Past)"}
+                        </span>
                       </div>
-                    )}
-                    {a.notes && (
-                      <div className="detail-row">
-                        <strong>Doctor Notes:</strong>
-                        <span>{a.notes}</span>
-                      </div>
-                    )}
+                      {a.reason && (
+                        <div className="detail-row">
+                          <strong>Reason:</strong>
+                          <span>{a.reason}</span>
+                        </div>
+                      )}
+                      {a.notes && (
+                        <div className="detail-row">
+                          <strong>Doctor Notes:</strong>
+                          <span>{a.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="appointment-actions-large">
+                      {a.status !== "cancelled" && !isPast && (
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => handleCancel(a._id)}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      {canVideoCall && (
+                        <button
+                          className="btn btn-primary video-call-btn"
+                          onClick={() => handleJoinVideoCall(a)}
+                        >
+                          📹 Join Video Call
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="appointment-actions-large">
-                    {a.status !== "cancelled" && (
-                      <button className="btn btn-outline" onClick={() => handleCancel(a._id)}>Cancel</button>
-                    )}
-                    {(a.status === "accepted" || a.status === "scheduled") && (
-                      <button 
-                        className="btn btn-primary" 
-                        onClick={() => {
-                          // Store appointment data in localStorage for chat to access
-                          localStorage.setItem('currentAppointment', JSON.stringify({
-                            appointmentId: a._id,
-                            doctorId: a.doctorId?._id || a.doctorId,
-                            patientId: a.patientId?._id || a.patientId,
-                            doctorName: a.doctorId?.name || `${a.doctorId?.user?.firstName || "Doctor"} ${a.doctorId?.user?.lastName || ""}`,
-                            patientName: a.patientId?.name || "Patient"
-                          }));
-                          navigate(`/chat/${a._id}`);
-                        }}
-                      >
-                        💬 Chat with Doctor
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -207,5 +280,3 @@ export default function PatientAppointmentsPage() {
     </div>
   );
 }
-
-

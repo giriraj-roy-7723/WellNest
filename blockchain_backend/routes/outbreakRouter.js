@@ -4,6 +4,8 @@ const path = require("path");
 const fs = require("fs");
 
 const OUT = require("../model/outbreakRecords.js");
+const DNT = require("../model/Donaters.js");
+
 const { authMiddleware, restrictRole } = require("../middlewares/auth.js");
 
 const {

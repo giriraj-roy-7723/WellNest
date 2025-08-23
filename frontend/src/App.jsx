@@ -28,6 +28,8 @@ import BlogsPage from "./pages/BlogsPage";
 //outbreak components
 import OutbreakPage from "./pages/OutBreakPage";
 
+import WebRTCVideoCall from "./pages/WebRtc";
+
 // Events components
 import EventsMainPage from "./pages/events/EventsMainPage";
 import EventsListPage from "./pages/events/EventsListPage";
@@ -35,7 +37,7 @@ import OrganizeEventForm from "./pages/events/OrganizeEventForm";
 import EventParticipantsPage from "./pages/events/EventParticipantsPage";
 import ParticipantRegistration from "./pages/events/ParticipantRegistration";
 
-import ChatPage from "./pages/ChatPage";
+// import ChatPage from "./pages/ChatPage";
 
 import AIChatPage from "./pages/AiChatPage";
 
@@ -52,9 +54,7 @@ function App() {
               <Route path="/signup" element={<SignUp />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/dashboard" element={<Dashboard />} />
-
-              <Route path="/chats" element={<ChatPage />} />
-              <Route path="/chat/:appointmentId" element={<ChatPage />} />
+              <Route path="/video-call" element={<WebRTCVideoCall />} />
 
               <Route path="/doctors" element={<DoctorsPage />} />
               {/* Appointment Routes */}
