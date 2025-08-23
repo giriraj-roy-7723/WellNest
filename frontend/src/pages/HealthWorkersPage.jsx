@@ -9,6 +9,7 @@ export default function HealthWorkersPage() {
   const [error, setError] = useState("");
   const [selectedWorker, setSelectedWorker] = useState(null);
   const [showBlogModal, setShowBlogModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [workerBlogs, setWorkerBlogs] = useState([]);
   const [loadingBlogs, setLoadingBlogs] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -51,11 +52,12 @@ export default function HealthWorkersPage() {
     setSelectedWorker(worker);
     setShowBlogModal(true);
     setLoadingBlogs(true);
-    
+
     try {
       // Check if the current user is the owner of this health worker
-      const isOwner = currentUser && worker.user && currentUser._id === worker.user._id;
-      
+      const isOwner =
+        currentUser && worker.user && currentUser._id === worker.user._id;
+
       if (isOwner) {
         // If current user owns this health worker, fetch their blogs from their own endpoint
         const blogsResponse = await api.get("/healthworker/blogs");
@@ -64,11 +66,15 @@ export default function HealthWorkersPage() {
         // If not the owner, fetch all health worker blogs and filter for this specific worker
         const allBlogsResponse = await api.get("/healthworker/all-blogs");
         const allBlogs = allBlogsResponse.data.data || [];
-        
+
         // Filter blogs for this specific health worker
-        const workerName = worker.user ? `${worker.user.firstName} ${worker.user.lastName}` : worker.name || "Health Worker";
-        const filteredBlogs = allBlogs.filter(blog => blog.workerName === workerName);
-        
+        const workerName = worker.user
+          ? `${worker.user.firstName} ${worker.user.lastName}`
+          : worker.name || "Health Worker";
+        const filteredBlogs = allBlogs.filter(
+          (blog) => blog.workerName === workerName
+        );
+
         setWorkerBlogs(filteredBlogs);
       }
     } catch (err) {
@@ -79,10 +85,20 @@ export default function HealthWorkersPage() {
     }
   };
 
+  const handleContact = (worker) => {
+    setSelectedWorker(worker);
+    setShowContactModal(true);
+  };
+
   const closeBlogModal = () => {
     setShowBlogModal(false);
     setSelectedWorker(null);
     setWorkerBlogs([]);
+  };
+
+  const closeContactModal = () => {
+    setShowContactModal(false);
+    setSelectedWorker(null);
   };
 
   const handleLogout = () => {
@@ -97,7 +113,9 @@ export default function HealthWorkersPage() {
         <div className="page-content">
           <div className="section-header">
             <h1 className="section-title">Health Workers</h1>
-            <p className="section-subtitle">Connect with community health workers</p>
+            <p className="section-subtitle">
+              Connect with community health workers
+            </p>
           </div>
           <div className="section-content">
             <div className="loading-spinner"></div>
@@ -115,7 +133,9 @@ export default function HealthWorkersPage() {
         <div className="page-content">
           <div className="section-header">
             <h1 className="section-title">Health Workers</h1>
-            <p className="section-subtitle">Connect with community health workers</p>
+            <p className="section-subtitle">
+              Connect with community health workers
+            </p>
           </div>
           <div className="section-content">
             <div className="error-message">{error}</div>
@@ -134,7 +154,9 @@ export default function HealthWorkersPage() {
       <div className="page-content">
         <div className="section-header">
           <h1 className="section-title">Health Workers</h1>
-          <p className="section-subtitle">Access community health workers for local healthcare support</p>
+          <p className="section-subtitle">
+            Access community health workers for local healthcare support
+          </p>
         </div>
 
         <div className="section-content">
@@ -147,14 +169,29 @@ export default function HealthWorkersPage() {
           ) : (
             <div className="grid-3">
               {healthWorkers.map((worker, index) => {
-                const isOwner = currentUser && worker.user && currentUser._id === worker.user._id;
+                const isOwner =
+                  currentUser &&
+                  worker.user &&
+                  currentUser._id === worker.user._id;
                 return (
-                  <div key={worker._id || index} className="card health-worker-card">
+                  <div
+                    key={worker._id || index}
+                    className="card health-worker-card"
+                  >
                     <div className="card-header">
                       <div className="card-icon">🏥</div>
                       <h3 className="card-title">
-                        {worker.user ? `${worker.user.firstName} ${worker.user.lastName}` : worker.name || "Health Worker Name"}
-                        {isOwner && <span className="badge badge-info" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>Your Profile</span>}
+                        {worker.user
+                          ? `${worker.user.firstName} ${worker.user.lastName}`
+                          : worker.name || "Health Worker Name"}
+                        {isOwner && (
+                          <span
+                            className="badge badge-info"
+                            style={{ marginLeft: "0.5rem", fontSize: "0.7rem" }}
+                          >
+                            Your Profile
+                          </span>
+                        )}
                       </h3>
                     </div>
                     <div className="card-content">
@@ -183,10 +220,13 @@ export default function HealthWorkersPage() {
                         )}
                       </div>
                       <div className="worker-actions">
-                        <button className="btn btn-primary btn-small">
+                        <button
+                          className="btn btn-primary btn-small"
+                          onClick={() => handleContact(worker)}
+                        >
                           Contact
                         </button>
-                        <button 
+                        <button
                           className="btn btn-outline btn-small"
                           onClick={() => handleViewBlogs(worker)}
                         >
@@ -202,13 +242,150 @@ export default function HealthWorkersPage() {
         </div>
       </div>
 
+      {/* Contact Modal */}
+      {showContactModal && selectedWorker && (
+        <div className="modal-overlay" onClick={closeContactModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                Contact{" "}
+                {selectedWorker.user
+                  ? `${selectedWorker.user.firstName} ${selectedWorker.user.lastName}`
+                  : selectedWorker.name || "Health Worker"}
+              </h3>
+              <button className="modal-close" onClick={closeContactModal}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="contact-details">
+                <div className="contact-item">
+                  <div className="contact-icon">👨‍⚕️</div>
+                  <div className="contact-info">
+                    <strong>Health Worker:</strong>
+                    <span>
+                      {selectedWorker.user
+                        ? `${selectedWorker.user.firstName} ${selectedWorker.user.lastName}`
+                        : selectedWorker.name || "Not specified"}
+                    </span>
+                  </div>
+                </div>
+
+                {selectedWorker.employer && (
+                  <div className="contact-item">
+                    <div className="contact-icon">🏢</div>
+                    <div className="contact-info">
+                      <strong>Employer/Organization:</strong>
+                      <span>{selectedWorker.employer}</span>
+                    </div>
+                  </div>
+                )}
+
+                {selectedWorker.certId && (
+                  <div className="contact-item">
+                    <div className="contact-icon">📜</div>
+                    <div className="contact-info">
+                      <strong>Certification ID:</strong>
+                      <span>{selectedWorker.certId}</span>
+                    </div>
+                  </div>
+                )}
+
+                {selectedWorker.region && (
+                  <div className="contact-item">
+                    <div className="contact-icon">📍</div>
+                    <div className="contact-info">
+                      <strong>Service Region:</strong>
+                      <span>{selectedWorker.region}</span>
+                    </div>
+                  </div>
+                )}
+
+                {selectedWorker.user?.email && (
+                  <div className="contact-item">
+                    <div className="contact-icon">📧</div>
+                    <div className="contact-info">
+                      <strong>Email:</strong>
+                      <a
+                        href={`mailto:${selectedWorker.user.email}`}
+                        className="contact-link"
+                      >
+                        {selectedWorker.user.email}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {selectedWorker.about && (
+                  <div className="contact-item">
+                    <div className="contact-icon">ℹ️</div>
+                    <div className="contact-info">
+                      <strong>About:</strong>
+                      <span>{selectedWorker.about}</span>
+                    </div>
+                  </div>
+                )}
+
+                {selectedWorker.isProfileComplete && (
+                  <div className="contact-item">
+                    <div className="contact-icon">✅</div>
+                    <div className="contact-info">
+                      <strong>Profile Status:</strong>
+                      <span className="badge badge-success">
+                        Verified Profile
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="contact-actions">
+                {selectedWorker.user?.email && (
+                  <a
+                    href={`mailto:${selectedWorker.user.email}`}
+                    className="btn btn-primary"
+                    style={{ textDecoration: "none" }}
+                  >
+                    📧 Send Email
+                  </a>
+                )}
+                <button
+                  className="btn btn-outline"
+                  onClick={() => handleViewBlogs(selectedWorker)}
+                >
+                  📰 View Blogs
+                </button>
+              </div>
+
+              {selectedWorker.region && (
+                <div className="contact-note">
+                  <p>
+                    <small>
+                      💡 <strong>Note:</strong> This health worker provides
+                      services in the {selectedWorker.region} region.
+                    </small>
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Blog Modal */}
       {showBlogModal && (
         <div className="modal-overlay" onClick={closeBlogModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Blogs by {selectedWorker?.user ? `${selectedWorker.user.firstName} ${selectedWorker.user.lastName}` : selectedWorker?.name || "Health Worker"}</h3>
-              <button className="modal-close" onClick={closeBlogModal}>×</button>
+              <h3>
+                Blogs by{" "}
+                {selectedWorker?.user
+                  ? `${selectedWorker.user.firstName} ${selectedWorker.user.lastName}`
+                  : selectedWorker?.name || "Health Worker"}
+              </h3>
+              <button className="modal-close" onClick={closeBlogModal}>
+                ×
+              </button>
             </div>
             <div className="modal-body">
               {loadingBlogs ? (
@@ -218,10 +395,11 @@ export default function HealthWorkersPage() {
                   <div className="empty-icon">📰</div>
                   <h3>No Blogs Available</h3>
                   <p>
-                    {currentUser && selectedWorker?.user && currentUser._id === selectedWorker.user._id 
+                    {currentUser &&
+                    selectedWorker?.user &&
+                    currentUser._id === selectedWorker.user._id
                       ? "You haven't published any blogs yet. Go to your Profile section to add blogs."
-                      : "This health worker hasn't published any blogs yet."
-                    }
+                      : "This health worker hasn't published any blogs yet."}
                   </p>
                 </div>
               ) : (
@@ -231,7 +409,8 @@ export default function HealthWorkersPage() {
                       <h5>{blog.title}</h5>
                       <p>{blog.body}</p>
                       <small>
-                        Published: {new Date(blog.createdAt).toLocaleDateString()}
+                        Published:{" "}
+                        {new Date(blog.createdAt).toLocaleDateString()}
                       </small>
                     </div>
                   ))}
